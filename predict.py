@@ -14,6 +14,13 @@ import sys
 import numpy as np
 import torch
 
+#FFT imports
+from torch.cuda.amp import autocast
+import time
+import gc
+gc.collect()
+torch.cuda.empty_cache()
+
 # pkg
 # pylint: disable=wrong-import-position
 script_dir = Path(__file__).parent
@@ -26,6 +33,8 @@ def get_ensembled_predictions(input_file, output_file=None):
     """Use an ensemble of pre-trained networks to predict the structure of an MSA file."""
     ensemble_model = trRosettaEnsemble()
 
+    start = time.time()
+
     input_path = Path(input_file)
     input_data, _ = preprocess(msa_file=input_path)
 
@@ -34,9 +43,16 @@ def get_ensembled_predictions(input_file, output_file=None):
         if output_file
         else input_path.parent / f"{input_path.stem}.npz"
     )
+
     # prob_distance, prob_omega, prob_theta, prob_phi
-    outputs = [model(input_data) for model in ensemble_model.models]
+    torch.cuda.empty_cache()
+    with autocast():
+        outputs = [model(input_data) for model in ensemble_model.models]
+
     averaged_outputs = utils.average_dict(outputs, detach = True)
+
+    end = time.time()
+    print("NN runtime: " + str(end - start))
 
     np.savez_compressed(output_path, **averaged_outputs)
     print(f"predictions for {input_path} saved to {output_path}")

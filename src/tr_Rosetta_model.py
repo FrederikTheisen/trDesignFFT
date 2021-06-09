@@ -17,7 +17,6 @@ import torch.nn.functional as F
 # pkg
 from utils import d, parse_a3m, plot_distogram, distogram_distribution_to_distogram, average_dict
 
-
 def msa2pssm(msa1hot, w):
     """Return a PSSM from a 1-hot MSA."""
     beff = w.sum()
@@ -29,7 +28,7 @@ def msa2pssm(msa1hot, w):
 def reweight(msa1hot, cutoff):
     """Reweigh 1-hot MSA based on a `cutoff`."""
     id_min = msa1hot.shape[1] * cutoff
-    id_mtx = torch.einsum("ikl,jkl->ij", msa1hot, msa1hot)
+    id_mtx = torch.einsum("ikl,jkl->ij", msa1hot, msa1hot) #matrix operations.
     id_mask = id_mtx > id_min
     w = 1.0 / id_mask.float().sum(dim=-1)
     return w
@@ -65,16 +64,16 @@ def fast_dca(msa1hot, weights, penalty=4.5):
 
 def prep_seq(a3m, wmin=0.8, ns=21):
     """Return a one-hot encoded MSA for the given sequences."""
-    nrow, ncol = a3m.shape
+    nrow, ncol = a3m.shape #shape probably [1,L]
     msa1hot = F.one_hot(a3m, ns).float().to(d())
     w = reweight(msa1hot, wmin).float().to(d())
 
     # 1d sequence
-    f1d_seq = msa1hot[0, :, :20].float()
-    f1d_pssm = msa2pssm(msa1hot, w)
+    f1d_seq = msa1hot[0, :, :20].float() #probably 1D array of onehot encoded sequence
+    f1d_pssm = msa2pssm(msa1hot, w) #obscure
 
     f1d = torch.cat((f1d_seq, f1d_pssm), dim=1)
-    f1d = f1d[None, :, :].reshape((1, ncol, 42))
+    f1d = f1d[None, :, :].reshape((1, ncol, 42)) #[[[42],[42],[42],ncol]]
 
     # 2d sequence
     f2d_dca = (
@@ -130,6 +129,7 @@ class trRosettaNetwork(nn.Module):
 
     def __init__(self, filters=64, kernel=3, num_layers=61):
         """Construct a trRosetta network."""
+        print(">>Constructing a trRosetta network...")
         super().__init__()
         self.filters = filters
         self.kernel = kernel
@@ -168,10 +168,14 @@ class trRosettaNetwork(nn.Module):
         self.to_prob_bb = nn.Sequential(conv2d(filters, 3, 1), nn.Softmax(dim=1))
         self.to_prob_omega = nn.Sequential(conv2d(filters, 25, 1), nn.Softmax(dim=1))
 
+
+
     def forward(self, x):
         """Compute the anglegrams and distograms."""
+
         x = self.first_block(x)
 
+        #print(len(self.layers))
         for layer in self.layers:
             x = self.activate(x + layer(x))
 
@@ -200,6 +204,7 @@ class trRosettaEnsemble(nn.Module):
 
     def __init__(self, trRosetta_model_dir=None, use_n_models=np.inf):
         """Construct the network."""
+        print("### Init trRosettaEnsemble model ###")
         super().__init__()
 
         self.model_dir = Path(
@@ -215,6 +220,7 @@ class trRosettaEnsemble(nn.Module):
 
         self.n_models = len(self.model_paths)
         self.load()
+        print("### trRosettaEnsemble model initiated ###")
 
     def load(self):
         """Load stored models."""
@@ -222,7 +228,7 @@ class trRosettaEnsemble(nn.Module):
         # self.cuda_streams = [torch.cuda.Stream() for i in self.model_paths]
 
         for i, model_path in enumerate(self.model_paths):
-            print(f"Loading {model_path}...")
+            print(f">Loading {model_path}...")
             self.models[i] = trRosettaNetwork()  # .share_memory()
             self.models[i].load_state_dict(
                 torch.load(model_path, map_location=torch.device(d()))
@@ -231,13 +237,14 @@ class trRosettaEnsemble(nn.Module):
 
     def forward(self, x, use_n_models=None, dump_distograms_path=None):
         """Compute the anglegrams and distograms using an ensemble."""
+        print("Ensemble forward")
         if use_n_models is None:
             use_n_models = self.n_models
 
         # TODO: Make this forward pass use parallel GPU threads
         outputs = []
-        for i, structure_model in enumerate(self.models[:use_n_models]):
-            outputs.append(structure_model(x))
+        for i, structure_model in enumerate(self.models[:use_n_models]): #models = trRosettaNetwork instances
+            outputs.append(structure_model(x)) #execute tr network using 'model_input' as input. Model_input is 526 times LxL tensors in a tensor container
 
         if dump_distograms_path:
             dump_distograms_path = Path(dump_distograms_path)

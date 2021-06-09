@@ -16,9 +16,8 @@ import torch
 # pkg
 import config as cfg
 
-
 def d(tensor=None, force_cpu=False):
-    """Return 'cpu' or 'cuda' depending on context."""
+    """Return 'cpu' or 'cuda' depending on context. Is used to set tensor calculation device"""
     if force_cpu:
         return "cpu"
     if tensor is None:
@@ -44,6 +43,7 @@ def average_dict(list_of_dicts, detach = False):
 
         if detach:
             averaged_outputs[key] = averaged_outputs[key].cpu().detach().numpy()
+            torch.cuda.empty_cache()
 
     return averaged_outputs
 
@@ -78,9 +78,9 @@ def aa2idx(seq: str) -> np.ndarray:
     """Return the sequence of characters as a list of integers."""
     # convert letters into numbers
     abc = cfg.ALPHABET_full
-    idx = np.array(list(seq), dtype="|S1").view(np.uint8)
+    idx = np.array(list(seq), dtype="|S1").view(np.uint8) #convert tto array of chars (byte ints)
     for i in range(abc.shape[0]):
-        idx[idx == abc[i]] = i
+        idx[idx == abc[i]] = i #for all equal to abs[i] set value to i (replace byte ints with 0 - 20)
 
     # treat all unknown characters as gaps
     idx[idx > cfg.MAX_AA_INDEX] = cfg.MAX_AA_INDEX

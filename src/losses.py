@@ -74,7 +74,7 @@ def top_prob(distogram_distributions, verbose=False):
     return TM_score_proxies
 
 
-class Structural_Background_Loss(torch.nn.Module):
+class Structural_Background_Loss(torch.nn.Module): #This could be free hallucination loss function
     """Computes the KL-divergence wrt a structural background distribution."""
 
     DEFAULT_WEIGHTS = [1.0, 1.0, 1.0, 1.0]
@@ -154,7 +154,8 @@ class Motif_Satisfaction(torch.nn.Module):
         self.seq_L = self.mask.shape[0]
 
         save_dir = Path(save_dir) if save_dir else None
-        
+
+        #This section appears to plot the target motif restraints
         # If the target is larger than the sequence, crop out a section of seq_L x seq_L:
         # start_i = 0  # Start at the top left
         for key in self.keys:

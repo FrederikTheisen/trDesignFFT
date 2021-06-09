@@ -7,6 +7,7 @@ import time
 # lib
 import numpy as np
 import torch
+from torch.cuda.amp import autocast
 
 # pkg
 from losses import *  # pylint: disable=wildcard-import, unused-wildcard-import
@@ -121,10 +122,13 @@ class MCMC_Optimizer(torch.nn.Module):
         self.aa_bkgr_distribution = torch.from_numpy(self.native_frequencies).to(d())
 
         # Motif-Loss:
-        self.motif_weight = 1.00
-        self.motif_mask = np.zeros((self.seq_L, self.seq_L))
+        self.motif_weight = 1.00 #Multiplier for the loss contribution
+        self.motif_mask = np.zeros((self.seq_L, self.seq_L)) #LxL tensor, int64, L currently specified in config.py. Cotains only zeros
         self.motif_mask = torch.from_numpy(self.motif_mask).long().to(d())
 
+        #If motif target is specified. Motif target file is .npz LxL. L is overall protein length
+        #Overrides previous motif_mask
+        #New mask will be ones with a diagonal zero line
         if self.target_motif_path is not None:
             self.motif_mask = np.ones((self.seq_L, self.seq_L))
             self.motif_mask = torch.from_numpy(self.motif_mask).long().to(d())
@@ -151,7 +155,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
         # aa composition loss
         aa_samp = (
-            msa1hot[0, :, :20].sum(axis=0) / self.seq_L + self.eps
+            msa1hot[0, :, :20].sum(axis=0) / self.seq_L + self.eps #take entire first sequence, all 1hot chars, and sum across length?
         )  # Get relative frequency for each AA
         aa_samp = (
             aa_samp / aa_samp.sum()
@@ -162,10 +166,10 @@ class MCMC_Optimizer(torch.nn.Module):
         ).sum()
 
         # Motif Loss:
-        if self.target_motif_path is not None:
-            motif_loss = self.motif_sat_loss(structure_predictions)
+        if self.target_motif_path is not None: #check if target motif has been specified
+            motif_loss = self.motif_sat_loss(structure_predictions) #motif_sat_loss = MotifSatisfaction object (nn object)
         else:
-            motif_loss = 0
+            motif_loss = 0 #no target motif = no loss
 
         # total loss
         loss_v = (
@@ -278,12 +282,14 @@ class MCMC_Optimizer(torch.nn.Module):
 
             # Preprocess the sequence
             seq_curr = torch.from_numpy(seq_curr).long()
-            model_input, msa1hot = prep_seq(seq_curr)
-
+            model_input, msa1hot = prep_seq(seq_curr) #no clue what "model_input" is
+            
             # probe effect of mutation
-            structure_predictions = self.structure_models(
-                model_input, use_n_models=cfg.n_models
-            )
+            with autocast(): #FFT, may not be correct place to autocast
+                structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
+                    model_input, use_n_models=cfg.n_models
+
+
             E_curr, metrics = self.loss(
                 seq_curr, structure_predictions, msa1hot, track=True
             )
