@@ -7,28 +7,37 @@ import numpy as np
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 60  # sequence length
+LEN = 128  # sequence length
 AA_WEIGHT = 1.0  # weight for the AA composition biasing loss term
-RM_AA = ""  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
-n_models = 1  # How many structure prediction models to ensemble? [1-5]
+RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
+n_models = 100  # How many structure prediction models to ensemble? [1-5]
 
 # MCMC schedule:
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion
-MCMC["N_STEPS"] = 500  # Number of steps for each MCMC optimization
+MCMC["N_STEPS"] = 2000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25  # Divide BETA by COEF
 MCMC["M"] = MCMC["N_STEPS"] // 10  # Adjust beta every M steps
 
-num_simulations = 1000  # Number of sequences to design
+num_simulations = 50  # Number of sequences to design
 
 # seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
-seed_filepath = None  # Sample starting sequences 100% at random
+seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
 
 # keep certain positions at specific residues (e.g., "---A---C---")
 sequence_constraint = None
+
 # Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 # target_motif_path   = 'target_motifs/target.npz'
-target_motif_path = None
+target_motif_path = None #'/home/frederik/Documents/5oao_notails.npz'
+
+
+#Con struc seq     ################################################
+motif_constraint = None #-: none, a: sequence, s: structure, b: both
+motif_position =   None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
+motif_placement_mode = 0 #0 = random, 1 = dynamic, 2 = random pos, random length
+use_random_length = True #uses random proten length between length of motifs and the specified LEN
+
 
 experiment_name = f"proteins_len_{LEN}_{MCMC['N_STEPS']}_steps"
 

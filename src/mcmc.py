@@ -23,6 +23,70 @@ def v(torch_value):
     except Exception:
         return torch_value
 
+def placemotifs(motifs, sequence_length, mode = 0):
+    """Randomly position discontinous motifs and check if valid. motif = [start, end, length, restraints, group, newstart, newend]"""
+    valid = False
+    i = 0
+    sum = 0
+    for m in motifs:
+        sum += m[2]
+    if (sum > seq_L):
+        print("Sequence too short")
+        return placemotifs(motifs[:-1], seq_L)
+    while not valid:
+        #set random start positions
+        for m in motifs[:]:
+            m[5] = np.random.randint(0,seq_L-m[2]+1)
+            m[6] = m[5]+m[2]-1
+        #check if motifs are valid
+        valid = True
+        i = i + 1
+        for m1 in motifs[:]:
+            for m2 in motifs[:]:
+                if m1 == m2: continue
+                if (m1[5] >= m2[5]) and (m1[5] <= m2[6]):
+                    valid = False
+                    break
+                elif m1[6] >= m2[5] and m1[6] <= m2[6]:
+                    valid = False
+                    break
+        if i > 1000: #if not valid, place motifs manually
+            print("No valid motif placements found, attempting sequential positions")
+            random.shuffle(motifs)
+            rest = seq_L - sum
+            buffer = math.floor(rest/(len(motifs)+1))
+            pos = buffer
+            for m in motifs:
+                m[5] = pos
+                m[6] = m[5] + m[2]-1
+                pos += m[2] + buffer
+            break
+    return motifs
+
+
+def createmask(motifs, seq_L, save_dir):
+    """Create mask for discontinous motifs"""
+
+    #setup mask size
+    motif_mask_g = np.zeros((seq_L, seq_L))
+    motif_mask = np.zeros((seq_L, seq_L))
+
+    for m1 in motifs[:]:
+        for i in range(m1[5],m1[6]+1):
+            for m2 in motifs[:]:
+                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                    continue
+                for j in range(m2[5],m2[6]+1):
+                    motif_mask[i,j] = 1
+                    motif_mask_g[i,j] = 1+m1[4]
+
+    plot_values = motif_mask_g.copy()
+    plot_distogram(
+        plot_values,
+        save_dir / f"motif_mask_groups.jpg",
+    )
+
+    return motif_mask
 
 class MCMC_Optimizer(torch.nn.Module):
     """Markov Chain Monte Carlo optimizer."""
@@ -48,6 +112,7 @@ class MCMC_Optimizer(torch.nn.Module):
         target_motif_path=None,
         trRosetta_model_dir="models/trRosetta_models",
         background_distribution_dir="backgrounds",
+        motifs=None
     ):
         """Construct the optimizer."""
         super().__init__()
@@ -101,6 +166,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_sequence = None
         self.best_E = None
         self.step = 0
+        self.motifs = motifs
 
     def setup_results_dir(self, experiment_name):
         """Create the directories for the results."""
@@ -131,6 +197,8 @@ class MCMC_Optimizer(torch.nn.Module):
         #New mask will be ones with a diagonal zero line
         if self.target_motif_path is not None:
             self.motif_mask = np.ones((self.seq_L, self.seq_L))
+            if motifs is not None:
+                self.motif_mask = createmask(motifs, seq_L, self.results_dir)
             self.motif_mask = torch.from_numpy(self.motif_mask).long().to(d())
             self.motif_mask.fill_diagonal_(0)
             self.motif_sat_loss = Motif_Satisfaction(
@@ -283,12 +351,12 @@ class MCMC_Optimizer(torch.nn.Module):
             # Preprocess the sequence
             seq_curr = torch.from_numpy(seq_curr).long()
             model_input, msa1hot = prep_seq(seq_curr) #no clue what "model_input" is
-            
-            # probe effect of mutation
-            with autocast(): #FFT, may not be correct place to autocast
-                structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
-                    model_input, use_n_models=cfg.n_models
 
+            # probe effect of mutation
+            #with autocast(): #FFT, may not be correct place to autocast
+            structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
+                model_input, use_n_models=cfg.n_models
+            )
 
             E_curr, metrics = self.loss(
                 seq_curr, structure_predictions, msa1hot, track=True

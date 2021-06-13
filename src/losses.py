@@ -136,7 +136,7 @@ class Motif_Satisfaction(torch.nn.Module):
 
     DEFAULT_KEYS = ["dist", "omega", "theta", "phi"]
 
-    def __init__(self, motif_npz_path, mask=None, save_dir=None, keys=None):
+    def __init__(self, motif_npz_path, mask=None, save_dir=None, keys=None, motifs = None):
         """Construct a loss object.
 
         Args:
@@ -154,6 +154,10 @@ class Motif_Satisfaction(torch.nn.Module):
         self.seq_L = self.mask.shape[0]
 
         save_dir = Path(save_dir) if save_dir else None
+
+        #rearrange npz data
+        if motifs is not None:
+            print("discontinous motifs")
 
         #This section appears to plot the target motif restraints
         # If the target is larger than the sequence, crop out a section of seq_L x seq_L:
@@ -201,3 +205,59 @@ class Motif_Satisfaction(torch.nn.Module):
             motif_loss -= (log_probs * self.mask).mean()
 
         return motif_loss
+
+class Discontinous_Motif_Satisfaction(Motif_Satisfaction):
+    DEFAULT_KEYS = ["dist", "omega", "theta", "phi"]
+
+    def __init__(self, motif_npz_path, mask=None, save_dir=None, keys=None):
+        """Construct a loss object.
+
+        Args:
+            motif_npz_path: t, p, d, o for the target structure
+            mask: binary mask of shape [LxL] that indicates where to apply the loss
+            keys (optional): only apply the `motif_loss` to certain components
+                (default: ["dist", "omega", "theta", "phi"])
+        """
+        super().__init__()
+
+        self.device = torch.device(d())
+        self.motif = dict(np.load(motif_npz_path))
+        self.mask = mask
+        self.keys = keys or Motif_Satisfaction.DEFAULT_KEYS
+        self.seq_L = self.mask.shape[0]
+
+        save_dir = Path(save_dir) if save_dir else None
+
+        #if discontinous motifs, then self.motif needs to be rearranged here
+
+        #This section appears to plot the target motif restraints
+        # If the target is larger than the sequence, crop out a section of seq_L x seq_L:
+        # start_i = 0  # Start at the top left
+        for key in self.keys:
+            # self.motif[key] = self.motif[key][start_i: start_i + self.seq_L, start_i : start_i + self.seq_L]
+
+            if save_dir:
+                plot_values = self.motif[key].copy()
+                plot_values[plot_values == 0] = cfg.limits[key][1]
+                np.fill_diagonal(plot_values, 0)
+                plot_distogram(
+                    plot_values,
+                    save_dir / f"_{key}_target.jpg",
+                    clim=cfg.limits[key],
+                )
+
+        # Get the bin_indices for each of the motif_targets:
+        # TODO make this allow linear combinations of the two closest bins
+        self.bin_indices = {}
+        for key in self.keys:
+            indices = np.abs(
+                cfg.bin_dict_np[key][np.newaxis, np.newaxis, :]
+                - self.motif[key][:, :, np.newaxis]
+            ).argmin(axis=-1)
+
+            # Fix the no-contact locations:
+            no_contact_locations = np.argwhere(self.motif[key] == 0)
+            indices[no_contact_locations[:, 0], no_contact_locations[:, 1]] = 0
+            self.bin_indices[key] = (
+                torch.from_numpy(indices).long().to(d()).unsqueeze(0)
+            )
