@@ -1,6 +1,7 @@
 # general
 _ignore*
 .venv
+results
 
 # editors
 .idea
@@ -12,6 +13,7 @@ _ignore*
 .coverage
 .pytest_cache
 /htmlcov
+metrics.csv
 
 # build
 *.egg-info
