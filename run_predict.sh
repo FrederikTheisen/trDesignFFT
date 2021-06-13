@@ -6,4 +6,4 @@ do
   echo "$line"
 done < "$input"
 
-python predict.py example.fasta
+python predict.py design_result.fasta
