@@ -29,14 +29,17 @@ sys.path[0:0] = [str(script_dir / "src"), str(script_dir)]
 from tr_Rosetta_model import trRosettaEnsemble, preprocess
 import utils
 
-def get_ensembled_predictions(input_file, output_file=None):
+def get_ensembled_predictions(input_file, output_file=None, seq=None):
     """Use an ensemble of pre-trained networks to predict the structure of an MSA file."""
     ensemble_model = trRosettaEnsemble()
 
     start = time.time()
 
-    input_path = Path(input_file)
-    input_data, _ = preprocess(msa_file=input_path)
+    if not seq:
+        input_path = Path(input_file)
+        input_data, _ = preprocess(msa_file=input_path)
+    else:
+        input_data, _ = preprocessseq(seq)
 
     output_path = (
         Path(output_file)
@@ -77,10 +80,14 @@ def main():
     $ ./predict.py data/test.a3m
     $ ./predict.py data/test.fasta
     """
+    useseq = False
     show_usage = False
     args = sys.argv[1:]
     if len(args) == 1 and args[0] in ["-h", "--help"]:
         show_usage = True
+    if len(args) > 2 and args[1] == "-seq":
+        useseq = True
+        seq = args[2]
     if not 1 <= len(args) <= 2:
         show_usage = True
         print("ERROR: Unknown number of arguments.\n\n")
@@ -89,7 +96,10 @@ def main():
         print(f"{cleandoc(main.__doc__)}\n")
         sys.exit(1)
 
-    get_ensembled_predictions(*args)  # pylint: disable=no-value-for-parameter
+    if not useseq:
+        get_ensembled_predictions(*args)  # pylint: disable=no-value-for-parameter
+    else:
+        get_ensembled_predictions(args[0], seq=seq)
 
 
 if __name__ == "__main__":
