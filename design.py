@@ -71,6 +71,19 @@ def main():
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
+    with (script_dir / "metrics.csv").open("w") as f:
+        i = 0
+        f.write(f"num")
+        for k,v in seq_metrics[0].items():
+            f.write(f",{k}")
+        f.write(f"\n")
+        for itr in seq_metrics:
+            f.write(str(i))
+            for k,v in itr.items():
+                f.write(f",{v}")
+            f.write(f"\n")
+            i += 1
+
 
 if __name__ == "__main__":
     main()
