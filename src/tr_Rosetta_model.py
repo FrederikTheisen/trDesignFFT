@@ -103,6 +103,11 @@ def preprocess(msa_file=None, wmin=0.8, ns=21, use_random_seq=False):
         a3m = torch.from_numpy(parse_a3m(msa_file)).long()
     return prep_seq(a3m, wmin=wmin, ns=ns)
 
+def preprocessseq(seq, wmin=0.8, ns=21):
+    """Return a one-hot encoded MSA from a random sequence or an `.a3m` file."""
+    a3m = torch.from_numpy(parse_a3mseq(seq)).long()
+    return prep_seq(a3m, wmin=wmin, ns=ns)
+
 
 # model code
 
@@ -237,7 +242,7 @@ class trRosettaEnsemble(nn.Module):
 
     def forward(self, x, use_n_models=None, dump_distograms_path=None):
         """Compute the anglegrams and distograms using an ensemble."""
-        print("Ensemble forward")
+
         if use_n_models is None:
             use_n_models = self.n_models
 

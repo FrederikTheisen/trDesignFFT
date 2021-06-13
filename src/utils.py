@@ -73,6 +73,21 @@ def parse_a3m(filename):
 
     return msa
 
+#FFT
+def parse_a3mseq(seq):
+    seqs = [seq]
+    table = str.maketrans(dict.fromkeys(string.ascii_lowercase))
+
+    # convert letters into numbers
+    msa = np.array([list(s) for s in seqs], dtype="|S1").view(np.uint8)
+    for i in range(cfg.ALPHABET_full.shape[0]):
+        msa[msa == cfg.ALPHABET_full[i]] = i
+
+    # treat all unknown characters as gaps
+    msa[msa > cfg.MAX_AA_INDEX] = cfg.MAX_AA_INDEX
+
+    return msa
+
 
 def aa2idx(seq: str) -> np.ndarray:
     """Return the sequence of characters as a list of integers."""
