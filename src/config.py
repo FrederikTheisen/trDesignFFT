@@ -10,12 +10,12 @@ import numpy as np
 LEN = 128  # sequence length
 AA_WEIGHT = 1.0  # weight for the AA composition biasing loss term
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
-n_models = 100  # How many structure prediction models to ensemble? [1-5]
+n_models = 10  # How many structure prediction models to ensemble? [1-5]
 
 # MCMC schedule:
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion
-MCMC["N_STEPS"] = 2000  # Number of steps for each MCMC optimization
+MCMC["N_STEPS"] = 200  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25  # Divide BETA by COEF
 MCMC["M"] = MCMC["N_STEPS"] // 10  # Adjust beta every M steps
 
@@ -34,8 +34,8 @@ target_motif_path = '/home/frederik/Documents/5oao_notails.npz'
 
 use_motifs = True
 #Con struc seq      PTLFAAISHKVAENDMLLINADYQQLRDKKMTRAEFVRKLRVIVGDDLLRSTITTLQ #paste sequence here for easy setup
-motif_constraint = '-----sss---bbbb--bbbb----ss---bbbbbssbbbbb--ss-----------' #None #-: none, a: sequence, s: structure, b: both. Positions should match sequence position
-motif_position =   '-----1111111111--3333----111111111111111111111-----------' #None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
+motif_constraint = '-ssssssssss-ssssssssssssssss----ssssssssssss-sssssssssss-' #None #-: none, a: sequence, s: structure, b: both. Positions should match sequence position
+motif_position =   '-1111111111-3333333333333333----333333333333-55555555555-' #None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
 motif_placement_mode = 0 #0 = random, 1 = dynamic, 2 = random pos, random length
 use_random_length = True #uses random proten length between length of motifs and the specified LEN
 
