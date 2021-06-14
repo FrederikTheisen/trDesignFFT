@@ -8,6 +8,7 @@ import time
 import numpy as np
 import torch
 from torch.cuda.amp import autocast
+import math
 
 # pkg
 from losses import *  # pylint: disable=wildcard-import, unused-wildcard-import
@@ -23,21 +24,26 @@ def v(torch_value):
     except Exception:
         return torch_value
 
-def placemotifs(motifs, sequence_length, mode = 0):
+def placemotifs(motifs, seq_L, sequence, mode = 0):
     """Randomly position discontinous motifs and check if valid. motif = [start, end, length, restraints, group, newstart, newend]"""
     valid = False
     i = 0
     sum = 0
+
+
     for m in motifs:
         sum += m[2]
     if (sum > seq_L):
         print("Sequence too short")
         return placemotifs(motifs[:-1], seq_L)
+
     while not valid:
+
         #set random start positions
         for m in motifs[:]:
             m[5] = np.random.randint(0,seq_L-m[2]+1)
             m[6] = m[5]+m[2]-1
+
         #check if motifs are valid
         valid = True
         i = i + 1
@@ -50,6 +56,7 @@ def placemotifs(motifs, sequence_length, mode = 0):
                 elif m1[6] >= m2[5] and m1[6] <= m2[6]:
                     valid = False
                     break
+
         if i > 1000: #if not valid, place motifs manually
             print("No valid motif placements found, attempting sequential positions")
             random.shuffle(motifs)
@@ -61,7 +68,29 @@ def placemotifs(motifs, sequence_length, mode = 0):
                 m[6] = m[5] + m[2]-1
                 pos += m[2] + buffer
             break
-    return motifs
+
+    seq_con = ""
+
+    constrain_seq = False
+    if sequence is not None:
+        for i in range(0,seq_L):
+            restraint = "-"
+            for m in motifs:
+                if i >= m[5] and i <= m[6]:
+                    mi = i - m[5] #local index
+                    c = m[3][mi]  #con type
+                    if c == "s" or c == "b":
+                        si = m[0]+mi  #template index
+                        restraint = sequence[si]
+                        constrain_seq = True
+                    continue
+
+            seq_con = seq_con + restraint
+
+    if not constrain_seq:
+        seq_con = None
+
+    return motifs, seq_con
 
 
 def createmask(motifs, seq_L, save_dir):
@@ -73,12 +102,16 @@ def createmask(motifs, seq_L, save_dir):
 
     for m1 in motifs[:]:
         for i in range(m1[5],m1[6]+1):
-            for m2 in motifs[:]:
-                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
-                    continue
-                for j in range(m2[5],m2[6]+1):
-                    motif_mask[i,j] = 1
-                    motif_mask_g[i,j] = 1+m1[4]
+            c1 = m1[3][i-m1[5]]
+            if c1 == 's' or c1 == 'b': #contraint is structural?
+                for m2 in motifs[:]:
+                    if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                        continue
+                    for j in range(m2[5],m2[6]+1):
+                        c2 = m2[3][j-m2[5]]
+                        if c2 == 's' or c2 == 'b': #contraint is structural?
+                            motif_mask[i,j] = 1
+                            motif_mask_g[i,j] = m1[4]
 
     plot_values = motif_mask_g.copy()
     plot_distogram(
@@ -128,6 +161,14 @@ class MCMC_Optimizer(torch.nn.Module):
         # General params:
         self.eps = 1e-7
         self.seq_L = L
+        self.motifs = None
+        if motifs is not None:
+            _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=0)
+            self.motifs = _motifs
+            sequence_constraint = _seq_con
+
+        print(self.motifs)
+        print(sequence_constraint)
 
         # Setup MCMC params:
         self.beta, self.N, self.coef, self.M = (
@@ -166,7 +207,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_sequence = None
         self.best_E = None
         self.step = 0
-        self.motifs = motifs
+
 
     def setup_results_dir(self, experiment_name):
         """Create the directories for the results."""
@@ -197,12 +238,14 @@ class MCMC_Optimizer(torch.nn.Module):
         #New mask will be ones with a diagonal zero line
         if self.target_motif_path is not None:
             self.motif_mask = np.ones((self.seq_L, self.seq_L))
-            if motifs is not None:
-                self.motif_mask = createmask(motifs, seq_L, self.results_dir)
+
+            if self.motifs is not None:
+                self.motif_mask = createmask(self.motifs, self.seq_L, self.results_dir)
+
             self.motif_mask = torch.from_numpy(self.motif_mask).long().to(d())
             self.motif_mask.fill_diagonal_(0)
             self.motif_sat_loss = Motif_Satisfaction(
-                self.target_motif_path, mask=self.motif_mask, save_dir=self.results_dir
+                self.target_motif_path, mask=self.motif_mask, save_dir=self.results_dir, motifs = self.motifs
             )
 
         # Apply the background KL-loss only under the hallucination_mask == 1 region
@@ -345,7 +388,7 @@ class MCMC_Optimizer(torch.nn.Module):
         # Main loop:
         for self.step in range(self.N + 1):
 
-            # random mutation at random position
+            # random mutation at random position, also fix sequence constraint
             seq_curr = self.mutate(seq)
 
             # Preprocess the sequence

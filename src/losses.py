@@ -6,6 +6,7 @@ from pathlib import Path
 # lib
 import numpy as np
 import torch
+import math
 
 # pkg
 from utils import d, plot_distogram
@@ -152,12 +153,36 @@ class Motif_Satisfaction(torch.nn.Module):
         self.mask = mask
         self.keys = keys or Motif_Satisfaction.DEFAULT_KEYS
         self.seq_L = self.mask.shape[0]
+        self.motifs = motifs
 
         save_dir = Path(save_dir) if save_dir else None
 
         #rearrange npz data
-        if motifs is not None:
-            print("discontinous motifs")
+        if self.motifs is not None:
+            print("Discontinous Motifs")
+            maps = np.array([])
+            for key in self.keys:
+                map = self.motif[key]
+                restraint = np.zeros((self.seq_L, self.seq_L))
+
+                for m1 in motifs[:]:
+                    for i in range(m1[5],m1[6]+1):
+                        m1i = i - m1[5] #local index
+                        s1i = m1[0]+m1i  #template index
+                        c1 = m1[3][m1i]
+                        if c1 == 's' or c1 == 'b': #contraint is structural?
+                            for m2 in motifs[:]:
+                                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                                    continue
+                                for j in range(m2[5],m2[6]+1):
+                                    m2i = j - m2[5]  #local index
+                                    s2i = m2[0]+m2i  #template index
+                                    c2 = m2[3][m2i]
+                                    if c2 == 's' or c2 == 'b': #contraint is structural?
+                                        restraint[i,j] = map[s1i,s2i]
+
+                self.motif[key] = restraint
+
 
         #This section appears to plot the target motif restraints
         # If the target is larger than the sequence, crop out a section of seq_L x seq_L:

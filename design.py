@@ -45,6 +45,51 @@ def main():
         aa_valid = np.setdiff1d(aa_valid, aa_skip)
 
     ########################################################
+    # prepare motifs
+    ########################################################
+
+    motifs = []
+    mlen = 0
+
+    if cfg.use_motifs:
+        open = False
+        motif = []
+        for i in range(0, len(cfg.motif_constraint)):
+            constraint = cfg.motif_constraint[i]
+            group = cfg.motif_position[i]
+
+            if group == '-':
+                if open: #close motif and append
+                    nl = motif.copy()
+                    motifs.append(nl)
+                open = False
+                continue
+            elif not open:
+                open = True
+                motif = [i,0,0,constraint,int(group),0,0]
+            elif open: #todo deal with no gap between two motifs
+                motif[1] = i
+                motif[3] = motif[3] + constraint
+
+            if i == len(cfg.motif_constraint) - 1 and open: #close motif and append
+                motifs.append(motif.copy())
+
+        for m in motifs:
+            l = m[1] - m[0] + 1
+            m[2] = l
+            mlen += l
+
+        for m in motifs:
+            print(m)
+
+        if cfg.use_random_length: #set random start length between length of motifs and config specified length
+            cfg.LEN = np.random.randint(mlen+1, cfg.LEN)
+    else:
+        motifs = None
+
+    print(mlen+1, cfg.LEN)
+
+    ########################################################
     # run MCMC
     ########################################################
 
@@ -63,7 +108,10 @@ def main():
             max_aa_index=cfg.MAX_AA_INDEX,
             sequence_constraint=cfg.sequence_constraint,
             target_motif_path=cfg.target_motif_path,
+            motifs = motifs
         )
+
+
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
 

@@ -25,16 +25,17 @@ num_simulations = 50  # Number of sequences to design
 seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
 
 # keep certain positions at specific residues (e.g., "---A---C---")
-sequence_constraint = None
+sequence_constraint = "PTLFAAISHKVAENDMLLINADYQQLRDKKMTRAEFVRKLRVIVGDDLLRSTITTLQ"
 
 # Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 # target_motif_path   = 'target_motifs/target.npz'
-target_motif_path = None #'/home/frederik/Documents/5oao_notails.npz'
+target_motif_path = '/home/frederik/Documents/5oao_notails.npz'
 
 
-#Con struc seq     ################################################
-motif_constraint = None #-: none, a: sequence, s: structure, b: both
-motif_position =   None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
+use_motifs = True
+#Con struc seq      PTLFAAISHKVAENDMLLINADYQQLRDKKMTRAEFVRKLRVIVGDDLLRSTITTLQ #paste sequence here for easy setup
+motif_constraint = '-----sss---bbbb--bbbb----ss---bbbbbssbbbbb--ss-----------' #None #-: none, a: sequence, s: structure, b: both. Positions should match sequence position
+motif_position =   '-----1111111111--3333----111111111111111111111-----------' #None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
 motif_placement_mode = 0 #0 = random, 1 = dynamic, 2 = random pos, random length
 use_random_length = True #uses random proten length between length of motifs and the specified LEN
 
