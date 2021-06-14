@@ -87,16 +87,18 @@ def main():
     else:
         motifs = None
 
-    print(mlen+1, cfg.LEN)
-
     ########################################################
     # run MCMC
     ########################################################
+    maxseqlen = cfg.LEN
 
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
         print(f"\n --- Optimizing sequence {i:04} of {cfg.num_simulations:04}...")
+
+        if cfg.use_random_length: #set random start length between length of motifs and config specified length
+            cfg.LEN = np.random.randint(mlen+1, maxseqlen)
 
         mcmc_optim = mcmc.MCMC_Optimizer(
             cfg.LEN,
