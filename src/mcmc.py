@@ -31,7 +31,6 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
     i = 0
     sum = 0
 
-
     for m in motifs:
         sum += m[2]
     if (sum > seq_L):
@@ -41,9 +40,18 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
     while not valid:
 
         #set random start positions
-        for m in motifs[:]:
-            m[5] = np.random.randint(0,seq_L-m[2]+1)
-            m[6] = m[5]+m[2]-1
+        if mode == 0 or mode == 1:
+            for m in motifs[:]:
+                m[5] = np.random.randint(0,seq_L-m[2]+1)
+                m[6] = m[5]+m[2]-1
+        else:
+            spacing = seq_L/(1+len(motifs))
+            pos = 0
+            for m in motifs[:]:
+                    buffer = int(math.abs(np.random.normal(spacing,spacing/2)))
+                    pos = pos + buffer
+                    m[5] = pos
+                    m[6] = m[5]+m[2]-1
 
         #check if motifs are valid
         valid = True
@@ -58,7 +66,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                     valid = False
                     break
 
-        if i > 1000: #if not valid, place motifs manually
+        if i > 10000: #if not valid, place motifs manually
             print("No valid motif placements found, attempting sequential positions")
             random.shuffle(motifs)
             rest = seq_L - sum
@@ -80,7 +88,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                 if i >= m[5] and i <= m[6]:
                     mi = i - m[5] #local index
                     c = m[3][mi]  #con type
-                    if c == "s" or c == "b":
+                    if c == "a" or c == "b":
                         si = m[0]+mi  #template index
                         restraint = sequence[si]
                         constrain_seq = True
@@ -469,7 +477,7 @@ class MCMC_Optimizer(torch.nn.Module):
         distogram = distogram_distribution_to_distogram(best_distogram_distribution)
         plot_distogram(
             distogram,
-            self.results_dir / f"{self.best_sequence}.jpg",
+            self.results_dir / f"result.jpg",
             clim=cfg.limits["dist"],
         )
         plot_progress(
