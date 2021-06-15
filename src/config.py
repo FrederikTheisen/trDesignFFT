@@ -7,36 +7,36 @@ import numpy as np
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 128  # sequence length
+LEN = 256  # sequence length
 AA_WEIGHT = 1.0  # weight for the AA composition biasing loss term
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
-n_models = 10  # How many structure prediction models to ensemble? [1-5]
+n_models = 3  # How many structure prediction models to ensemble? [1-5]
 
 # MCMC schedule:
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion
-MCMC["N_STEPS"] = 200  # Number of steps for each MCMC optimization
+MCMC["N_STEPS"] = 500  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25  # Divide BETA by COEF
 MCMC["M"] = MCMC["N_STEPS"] // 10  # Adjust beta every M steps
 
-num_simulations = 50  # Number of sequences to design
+num_simulations = 5  # Number of sequences to design
 
 # seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
 seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
 
 # keep certain positions at specific residues (e.g., "---A---C---")
-sequence_constraint = "PTLFAAISHKVAENDMLLINADYQQLRDKKMTRAEFVRKLRVIVGDDLLRSTITTLQ"
+sequence_constraint = '''MEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVNVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQNFRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEITLTGKMLT'''
 
 # Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 # target_motif_path   = 'target_motifs/target.npz'
-target_motif_path = '/home/frederik/Documents/5oao_notails.npz'
+target_motif_path = '/home/frederik/Documents/enzyme.npz'
 
 
 use_motifs = True
-#Con struc seq      PTLFAAISHKVAENDMLLINADYQQLRDKKMTRAEFVRKLRVIVGDDLLRSTITTLQ #paste sequence here for easy setup
-motif_constraint = '-ssssssssss-ssssssssssssssss----ssssssssssss-sssssssssss-' #None #-: none, a: sequence, s: structure, b: both. Positions should match sequence position
-motif_position =   '-1111111111-3333333333333333----333333333333-55555555555-' #None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
-motif_placement_mode = 0 #0 = random, 1 = dynamic, 2 = random pos, random length
+#Con struc seq      MEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVNVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQNFRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEITLTGKMLT #paste sequence here for easy setup
+motif_constraint = '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ssssssssss------------------------ssbbssssssssss-------------------------------sbbssbbss--------------------sbbbbbsssss-----------------------------sbbbsssbbb-----------------------sbbss-------sssssssssssssss-----------------------------------------sssbbbss---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------bs-----s--------------------------------------------------------------------------------------sssbbss-------------------------------sss-----------------------------------------------------------------------------------------------------------------------------------''' #None #-: none, a: sequence, s: structure, b: both. Positions should match sequence position
+motif_position =   '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------1111111111------------------------11111111111111-------------------------------111111111--------------------11111111111-----------------------------1111111111-----------------------11111-------111111111111111-----------------------------------------11111111---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111--------------------------------------------------------------------------------------1111111-------------------------------111-----------------------------------------------------------------------------------------------------------------------------------''' #None # -----11111111--------------22222222----- create distinct motifs, motifs are places randomly within the sequence
+motif_placement_mode = 0 #0 = random, 1 = dynamic, 2 = input order
 use_random_length = True #uses random proten length between length of motifs and the specified LEN
 
 

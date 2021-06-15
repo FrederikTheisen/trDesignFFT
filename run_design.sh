@@ -7,6 +7,7 @@
     #create new folder named by datetime
     #put output in results folder if possible
 
+#implement something to wake up GPU
 #implement output path
 python design.py
 
