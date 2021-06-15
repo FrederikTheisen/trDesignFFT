@@ -1,0 +1,22 @@
+myspace = {'colors': []}
+cmd.iterate('(n. CA)', 'colors.append(color)', space=myspace)
+seq = cmd.get_fastastr('all', state = 1)
+idx = seq.index('\n')
+seq = seq[idx+1:].strip().replace('\n','')
+colors = myspace['colors']
+rtype = ''
+mpos = ''
+for c in colors:
+  if c == 3:
+    rtype = rtype + 'b'
+    mpos = mpos + '1'
+  elif c == 4:
+    rtype = rtype + 's'
+    mpos = mpos + '1'
+  else:
+    rtype = rtype + '-'
+    mpos = mpos + '-'
+
+print(seq)
+print(rtype)
+print(mpos)
