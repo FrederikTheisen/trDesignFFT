@@ -60,13 +60,12 @@ def main():
 
             if group == '-':
                 if open: #close motif and append
-                    nl = motif.copy()
-                    motifs.append(nl)
+                    motifs.append(motif.copy())
                 open = False
                 continue
             elif not open:
                 open = True
-                motif = [i,0,0,constraint,int(group),0,0]
+                motif = [i,i,0,constraint,int(group),0,0]
             elif open: #todo deal with no gap between two motifs
                 motif[1] = i
                 motif[3] = motif[3] + constraint
@@ -82,8 +81,8 @@ def main():
         for m in motifs:
             print(m)
 
-        if cfg.use_random_length: #set random start length between length of motifs and config specified length
-            cfg.LEN = np.random.randint(mlen+1, cfg.LEN)
+        print("total motif length: " + str(mlen))
+
     else:
         motifs = None
 
@@ -112,8 +111,6 @@ def main():
             target_motif_path=cfg.target_motif_path,
             motifs = motifs
         )
-
-
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
 
