@@ -14,6 +14,7 @@ results
 .pytest_cache
 /htmlcov
 metrics.csv
+metrics_1model.csv
 
 # build
 *.egg-info
