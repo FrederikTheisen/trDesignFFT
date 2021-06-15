@@ -240,6 +240,7 @@ class trRosettaEnsemble(nn.Module):
             )
             self.models[i].to(d()).eval()
 
+    @torch.no_grad() #FFT
     def forward(self, x, use_n_models=None, dump_distograms_path=None):
         """Compute the anglegrams and distograms using an ensemble."""
 
