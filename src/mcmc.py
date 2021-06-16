@@ -35,7 +35,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         sum += m[2]
     if (sum > seq_L):
         print("Sequence too short")
-        return placemotifs(motifs[:-1], seq_L)
+        return placemotifs(motifs[:-1], seq_L, sequence, mode)
 
     while not valid:
 
@@ -48,7 +48,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
             spacing = seq_L/(1+len(motifs))
             pos = 0
             for m in motifs[:]:
-                    buffer = int(math.abs(np.random.normal(spacing,spacing/2)))
+                    buffer = int(abs(np.random.normal(spacing,spacing/2)))
                     pos = pos + buffer
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
@@ -57,6 +57,9 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         valid = True
         i = i + 1
         for m1 in motifs[:]:
+            if m1[6] > seq_L - 1:
+                valid = False
+                continue
             for m2 in motifs[:]:
                 if m1 == m2: continue
                 if (m1[5] >= m2[5]) and (m1[5] <= m2[6]):
@@ -69,13 +72,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         if i > 10000: #if not valid, place motifs manually
             print("No valid motif placements found, attempting sequential positions")
             random.shuffle(motifs)
-            rest = seq_L - sum
-            buffer = math.floor(rest/(len(motifs)+1))
-            pos = buffer
-            for m in motifs:
-                m[5] = pos
-                m[6] = m[5] + m[2]-1
-                pos += m[2] + buffer
+            placemotifs(motifs,seq_L,sequence,mode=2)
             break
 
     seq_con = ""
@@ -154,7 +151,8 @@ class MCMC_Optimizer(torch.nn.Module):
         target_motif_path=None,
         trRosetta_model_dir="models/trRosetta_models",
         background_distribution_dir="backgrounds",
-        motifs=None
+        motifs=None,
+        motifmode = 0
     ):
         """Construct the optimizer."""
         super().__init__()
@@ -171,8 +169,9 @@ class MCMC_Optimizer(torch.nn.Module):
         self.eps = 1e-7
         self.seq_L = L
         self.motifs = None
+        self.motifmode = motifmode
         if motifs is not None:
-            _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=0)
+            _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=self.motifmode)
             self.motifs = _motifs
             sequence_constraint = _seq_con
 
