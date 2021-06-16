@@ -58,12 +58,13 @@ def get_ensembled_predictions(input_file, output_file=None, seq=None):
     print("NN runtime: " + str(end - start))
 
     np.savez_compressed(output_path, **averaged_outputs)
-    print(f"predictions for {input_path} saved to {output_path}")
+    if seq is not None: print(f"predictions for {input_path} saved to {output_path}")
+    else: print(f"predictions saved to {output_path}")
 
-    utils.plot_distogram(
-        utils.distogram_distribution_to_distogram(averaged_outputs["dist"]),
-        f"{input_file}_dist.jpg",
-    )
+    #utils.plot_distogram(
+    #    utils.distogram_distribution_to_distogram(averaged_outputs["dist"]),
+    #    f"{input_file}_dist.jpg",
+    #)
 
 
 def main():
@@ -82,12 +83,19 @@ def main():
     """
     useseq = False
     show_usage = False
+    path = None
     args = sys.argv[1:]
     if len(args) == 1 and args[0] in ["-h", "--help"]:
         show_usage = True
-    if len(args) > 2 and args[1] == "-seq":
-        useseq = True
-        seq = args[2]
+    if len(args) > 2:
+        i = 0
+        for arg in args:
+            if arg == "-seg":
+                useseq = True
+                seq = args[i+1]
+            if arg == "-path":
+                path = args[i+1].strip()
+            i = i+1
     if not 1 <= len(args) <= 2:
         show_usage = True
         print("ERROR: Unknown number of arguments.\n\n")
