@@ -25,8 +25,15 @@ def v(torch_value):
     except Exception:
         return torch_value
 
+def motifsort(elem):
+    return elem[4]
+
 def placemotifs(motifs, seq_L, sequence, mode = 0):
     """Randomly position discontinous motifs and check if valid. motif = [start, end, length, restraints, group, newstart, newend]"""
+    print("Placing motifs...")
+    print("motifs: " + str(len(motifs)))
+    print("seq len: " + str(seq_L))
+    print("mode: " + str(mode))
     valid = False
     i = 0
     sum = 0
@@ -38,13 +45,12 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         return placemotifs(motifs[:-1], seq_L, sequence, mode)
 
     while not valid:
-
         #set random start positions
         if mode == 0 or mode == 1:
             for m in motifs[:]:
                 m[5] = np.random.randint(0,seq_L-m[2]+1)
                 m[6] = m[5]+m[2]-1
-        else:
+        elif mode == 2:
             spacing = seq_L/(1+len(motifs))
             pos = 0
             for m in motifs[:]:
@@ -52,6 +58,15 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                     pos = pos + buffer
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
+        elif mode == 3:
+            motifs = motifs.sort(key=motifsort)
+            for m in motifs[:]: #set all same group
+                m[4] = 1
+            return placemotifs(motifs, seq_L, sequence, mode = 2):
+
+        if i > 10000:
+            random.shuffle(motifs)
+            mode = 2
 
         #check if motifs are valid
         valid = True
@@ -69,10 +84,16 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                     valid = False
                     break
 
-        if i > 10000: #if not valid, place motifs manually
+        if i > 20000: #if not valid, place motifs manually
             print("No valid motif placements found, attempting sequential positions")
             random.shuffle(motifs)
-            placemotifs(motifs,seq_L,sequence,mode=2)
+            rest = seq_L - sum
+            buffer = math.floor(rest/(len(motifs)+1))
+            pos = buffer
+            for m in motifs:
+                m[5] = pos
+                m[6] = m[5] + m[2]-1
+                pos += m[2] + buffer
             break
 
     seq_con = ""
@@ -152,7 +173,8 @@ class MCMC_Optimizer(torch.nn.Module):
         trRosetta_model_dir="models/trRosetta_models",
         background_distribution_dir="backgrounds",
         motifs=None,
-        motifmode = 0
+        motifmode = 0,
+        motif_weight = 1
     ):
         """Construct the optimizer."""
         super().__init__()
@@ -170,12 +192,14 @@ class MCMC_Optimizer(torch.nn.Module):
         self.seq_L = L
         self.motifs = None
         self.motifmode = motifmode
+        print("Sequence Length: " + str(self.seq_L))
         if motifs is not None:
             _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=self.motifmode)
             self.motifs = _motifs
             sequence_constraint = _seq_con
 
-        print(self.motifs)
+        print("motif weigth: " + str(motif_weight))
+        for m in self.motifs: print(m)
         print(sequence_constraint)
 
         # Setup MCMC params:
@@ -215,6 +239,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_sequence = None
         self.best_E = None
         self.step = 0
+        self.motif_weight = motif_weight
 
 
     def setup_results_dir(self, experiment_name):
@@ -455,6 +480,14 @@ class MCMC_Optimizer(torch.nn.Module):
             if self.step % self.M == 0 and self.step != 0:
                 seq = self.fixup_MCMC(seq)
 
+            if self.step % 50 == 0:
+                with open('control.txt', 'r') as reader:
+                    line = reader.readlines()[0].strip()
+                    if i > 0 and line == "exit":
+                        print("exiting due to command")
+                        break
+
+
         ########################################
 
         # Save final results before exiting:
@@ -470,6 +503,9 @@ class MCMC_Optimizer(torch.nn.Module):
         for key in self.best_metrics.keys():
             self.best_metrics[key] = v(metrics[key])
         self.best_metrics["sequence"] = self.best_sequence
+
+        self.best_metrics["motifweight"] = self.motif_weight
+        self.best_metrics["motifmode"] = self.motifmode
 
         # Dump distogram:
         best_distogram_distribution = structure_predictions['dist'].detach().cpu().numpy()
