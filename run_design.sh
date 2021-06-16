@@ -15,7 +15,9 @@ python design.py
 
 #loop sequences
 input="./output.txt"
+i = 0
 while IFS= read -r line
 do
-    python predict.py -path '/home/filename.npz' -seq line
+    python predict.py -path '/home/1.npz' -seq line
+    i = $((i + 1))
 done < "$input"
