@@ -15,6 +15,7 @@ from torch.cuda.amp import autocast
 script_dir = Path(__file__).parent
 sys.path[0:0] = [str(script_dir / "src"), str(script_dir)]
 
+import io
 import mcmc
 import utils
 import config as cfg
@@ -53,25 +54,25 @@ def main():
     mlen = 0
 
     if cfg.use_motifs:
-        open = False
+        m_open = False
         motif = []
         for i in range(0, len(cfg.motif_constraint)):
             constraint = cfg.motif_constraint[i]
             group = cfg.motif_position[i]
 
             if group == '-':
-                if open: #close motif and append
+                if m_open: #close motif and append
                     motifs.append(motif.copy())
-                open = False
+                m_open = False
                 continue
-            elif not open:
-                open = True
+            elif not m_open:
+                m_open = True
                 motif = [i,i,0,constraint,int(group),0,0]
-            elif open: #todo deal with no gap between two motifs
+            elif m_open: #todo deal with no gap between two motifs
                 motif[1] = i
                 motif[3] = motif[3] + constraint
 
-            if i == len(cfg.motif_constraint) - 1 and open: #close motif and append
+            if i == len(cfg.motif_constraint) - 1 and m_open: #close motif and append
                 motifs.append(motif.copy())
 
         for m in motifs:
@@ -91,14 +92,24 @@ def main():
     # run MCMC
     ########################################################
     maxseqlen = cfg.LEN
+    use_random_motif_mode = cfg.motif_placement_mode == -1
 
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
         print(f"\n --- Optimizing sequence {i:04} of {cfg.num_simulations:04}...")
 
+        with open('control.txt', 'r') as reader:
+            line = reader.readlines()[0].strip()
+            if i > 0 and line == "exit":
+                print("exiting due to command")
+                break
+
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
             cfg.LEN = np.random.randint(mlen+1, maxseqlen)
+
+        if use_random_motif_mode:
+            cfg.motif_placement_mode = np.random.randint(0,4)
 
         mcmc_optim = mcmc.MCMC_Optimizer(
             cfg.LEN,
@@ -111,7 +122,8 @@ def main():
             sequence_constraint=cfg.sequence_constraint,
             target_motif_path=cfg.target_motif_path,
             motifs = motifs,
-            motifmode = cfg.motif_placement_mode
+            motifmode = cfg.motif_placement_mode,
+            motif_weight = np.random.uniform(1,cfg.motif_weight_max)
         )
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
