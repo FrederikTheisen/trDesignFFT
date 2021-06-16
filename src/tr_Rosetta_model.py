@@ -174,7 +174,7 @@ class trRosettaNetwork(nn.Module):
         self.to_prob_omega = nn.Sequential(conv2d(filters, 25, 1), nn.Softmax(dim=1))
 
 
-
+    @torch.no_grad() #FFT
     def forward(self, x):
         """Compute the anglegrams and distograms."""
 
@@ -209,7 +209,6 @@ class trRosettaEnsemble(nn.Module):
 
     def __init__(self, trRosetta_model_dir=None, use_n_models=np.inf):
         """Construct the network."""
-        print("### Init trRosettaEnsemble model ###")
         super().__init__()
 
         self.model_dir = Path(
@@ -225,7 +224,6 @@ class trRosettaEnsemble(nn.Module):
 
         self.n_models = len(self.model_paths)
         self.load()
-        print("### trRosettaEnsemble model initiated ###")
 
     def load(self):
         """Load stored models."""
@@ -233,7 +231,6 @@ class trRosettaEnsemble(nn.Module):
         # self.cuda_streams = [torch.cuda.Stream() for i in self.model_paths]
 
         for i, model_path in enumerate(self.model_paths):
-            print(f">Loading {model_path}...")
             self.models[i] = trRosettaNetwork()  # .share_memory()
             self.models[i].load_state_dict(
                 torch.load(model_path, map_location=torch.device(d()))
