@@ -8,6 +8,7 @@ import sys
 
 # lib
 import numpy as np
+from torch.cuda.amp import autocast
 
 # pkg
 # pylint: disable=wrong-import-position
@@ -81,7 +82,7 @@ def main():
         for m in motifs:
             print(m)
 
-        print("total motif length: " + str(mlen))
+        print("Total Motif Length: " + str(mlen))
 
     else:
         motifs = None
@@ -109,12 +110,15 @@ def main():
             max_aa_index=cfg.MAX_AA_INDEX,
             sequence_constraint=cfg.sequence_constraint,
             target_motif_path=cfg.target_motif_path,
-            motifs = motifs
+            motifs = motifs,
+            motifmode = cfg.motif_placement_mode
         )
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
 
-        metrics = mcmc_optim.run(start_seq)
+        with autocast():
+            metrics = mcmc_optim.run(start_seq)
+
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
