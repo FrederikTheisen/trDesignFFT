@@ -10,12 +10,14 @@ import torch
 from torch.cuda.amp import autocast
 import math
 import random
+import time
 
 # pkg
 from losses import *  # pylint: disable=wildcard-import, unused-wildcard-import
 from tr_Rosetta_model import trRosettaEnsemble, prep_seq
 from utils import aa2idx, distogram_distribution_to_distogram, idx2aa, plot_progress
 import config as cfg
+from utils import definegroupbydist
 
 
 def v(torch_value):
@@ -33,7 +35,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
     print("Placing motifs...")
     print("motifs: " + str(len(motifs)))
     print("seq len: " + str(seq_L))
-    print("mode: " + str(mode))
+    print("motif mode: " + str(mode))
     valid = False
     i = 0
     sum = 0
@@ -46,27 +48,29 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
 
     while not valid:
         #set random start positions
+        if mode == -2:
+            return motifs, None
         if mode == 0 or mode == 1:
             for m in motifs[:]:
                 m[5] = np.random.randint(0,seq_L-m[2]+1)
                 m[6] = m[5]+m[2]-1
         elif mode == 2:
-            spacing = seq_L/(1+len(motifs))
-            pos = 0
+            spacing = seq_L/len(motifs)
+            pos = int(spacing/2)
             for m in motifs[:]:
                     buffer = int(abs(np.random.normal(spacing,spacing/2)))
-                    pos = pos + buffer
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
+                    pos = pos + buffer
         elif mode == 3:
-            motifs = motifs.sort(key=motifsort)
+            motifs.sort(key=motifsort)
             for m in motifs[:]: #set all same group
-                m[4] = 1
-            return placemotifs(motifs, seq_L, sequence, mode = 2):
-
-        if i > 10000:
-            random.shuffle(motifs)
-            mode = 2
+                m[4] = 0
+            return placemotifs(motifs, seq_L, sequence, mode = 2)
+        elif mode == 4 or mode == 5:
+            motifs = definegroupbydist(motifs,cfg.target_motif_path, mode)
+            return placemotifs(motifs, seq_L, sequence, mode = 3)
+        else: return placemotifs(motifs, seq_L, sequence, mode = 1)
 
         #check if motifs are valid
         valid = True
@@ -138,7 +142,7 @@ def createmask(motifs, seq_L, save_dir):
                         c2 = m2[3][j-m2[5]]
                         if c2 == 's' or c2 == 'b': #contraint is structural?
                             motif_mask[i,j] = 1
-                            motif_mask_g[i,j] = m1[4]
+                            motif_mask_g[i,j] = m1[4]+1
 
     plot_values = motif_mask_g.copy()
     plot_distogram(
@@ -174,7 +178,8 @@ class MCMC_Optimizer(torch.nn.Module):
         background_distribution_dir="backgrounds",
         motifs=None,
         motifmode = 0,
-        motif_weight = 1
+        motif_weight = 1,
+        bkg_weight = 1
     ):
         """Construct the optimizer."""
         super().__init__()
@@ -196,7 +201,7 @@ class MCMC_Optimizer(torch.nn.Module):
         if motifs is not None:
             _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=self.motifmode)
             self.motifs = _motifs
-            sequence_constraint = _seq_con
+            if _seq_con is not None: sequence_constraint = _seq_con
 
         print("motif weigth: " + str(motif_weight))
         for m in self.motifs: print(m)
@@ -240,6 +245,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_E = None
         self.step = 0
         self.motif_weight = motif_weight
+        self.bkg_weight = bkg_weight
 
 
     def setup_results_dir(self, experiment_name):
@@ -317,7 +323,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
         # total loss
         loss_v = (
-            background_loss + self.aa_weight * loss_aa + self.motif_weight * motif_loss
+            self.bkg_weight * background_loss + self.aa_weight * loss_aa + self.motif_weight * motif_loss
         )
 
         metrics = {}
@@ -340,7 +346,9 @@ class MCMC_Optimizer(torch.nn.Module):
             seq = np.copy(seq_curr)
             E = E_curr
             self.n_accepted_mutations += 1
+            self.good_accepts.append(1)
         else:  # Higher energy, maybe replace..
+            self.good_accepts.append(0)
             if torch.exp((E - E_curr) * self.beta) > np.random.uniform():
                 seq = np.copy(seq_curr)
                 E = E_curr
@@ -379,15 +387,16 @@ class MCMC_Optimizer(torch.nn.Module):
 
     def fixup_MCMC(self, seq):
         """Dynamically adjust the metropolis beta parameter to improve performance."""
-        if self.step - self.best_step > self.N // 4:
+        if self.step - self.best_step > min(self.N // 4,1000):
             # No improvement for a long time, reload the best_sequence and decrease beta:
+            print("reload best seq")
             self.best_step = self.step
             self.beta = self.beta / (self.coef ** 2)
             seq = torch.from_numpy(
                 aa2idx(self.best_sequence).reshape([1, self.seq_L])
             ).long()
 
-        elif np.mean(self.bad_accepts[-100:]) < 0.05:
+        elif np.mean(self.bad_accepts[-100:]) < 0.07:
             # There has been some progress recently, but we're no longer accepting any bad mutations...
             self.beta = self.beta / self.coef
         else:
@@ -408,9 +417,12 @@ class MCMC_Optimizer(torch.nn.Module):
         print("Initial seq: ", start_seq)
         seq = aa2idx(start_seq).copy().reshape([1, self.seq_L])
 
-        nsave = max(1, self.N // 20)
+        nsave = min(max(1, self.N // 20),50)
+        benchmark = None #3*22425*math.pow(self.seq_L,-1.757873789)
+        badcount = 0
         E, E_tracker = np.inf, []
         self.bad_accepts = []
+        self.good_accepts = []
         self.n_accepted_mutations = 0
         self.n_accepted_bad_mutations = 0
         self.best_metrics = {}
@@ -424,12 +436,15 @@ class MCMC_Optimizer(torch.nn.Module):
             # random mutation at random position, also fix sequence constraint
             seq_curr = self.mutate(seq)
 
+            if self.step - self.best_step > min(self.N // 4,300) and self.beta > 100: seq_curr = self.mutate(seq_curr)  #double mutants if no improvement for a long time
+            if self.step - self.best_step > min(self.N // 4,750) and self.beta > 150: seq_curr = self.mutate(seq_curr)  #triple mutants if no improvement for a long time
+
             # Preprocess the sequence
             seq_curr = torch.from_numpy(seq_curr).long()
             model_input, msa1hot = prep_seq(seq_curr) #no clue what "model_input" is
 
             # probe effect of mutation
-            #with autocast(): #FFT, may not be correct place to autocast
+            #with autocast(): #FFT, may not be correct place to autocast3
             structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
                 model_input, use_n_models=cfg.n_models
             )
@@ -451,9 +466,11 @@ class MCMC_Optimizer(torch.nn.Module):
                     f"Bkg-KL: {background_loss:.2f} || "
                     f"beta: {self.beta}, "
                     f"mutations/s: {fps:.2f}, "
-                    f"bad_accepts: {np.sum(self.bad_accepts[-100:])}/100",
+                    f"bad/good_accepts: {np.sum(self.bad_accepts[-100:])}/{np.sum(self.good_accepts[-100:])}",
                     flush=True,
                 )
+                print("motif loss: " + str(metrics["motif_loss"]))
+                print("step diff: " + str(self.step - self.best_step))
 
                 if self.step % (nsave * 2) == 0:
                     distogram_distribution = (
@@ -480,12 +497,52 @@ class MCMC_Optimizer(torch.nn.Module):
             if self.step % self.M == 0 and self.step != 0:
                 seq = self.fixup_MCMC(seq)
 
-            if self.step % 50 == 0:
+
+            if (1 + self.step) % 10 == 0:
                 with open('control.txt', 'r') as reader:
-                    line = reader.readlines()[0].strip()
-                    if i > 0 and line == "exit":
-                        print("exiting due to command")
-                        break
+                    lines = reader.readlines()
+                    line = lines[0].strip()
+                if line == "exit" or line == "break":
+                    print("ending due to command")
+                    break
+                elif line == "beta":
+                    try:
+                        value = float(lines[1].strip())
+                        self.beta = value
+                    except: print("input error")
+                elif line == "bkw":
+                    try:
+                        value = float(lines[1].strip())
+                        self.bkg_weight = value
+                    except: print("input error")
+                elif line == "aaw":
+                    try:
+                        value = float(lines[1].strip())
+                        self.aa_weight = value
+                    except: print("input error")
+                elif line == "mw":
+                    try:
+                        value = float(lines[1].strip())
+                        self.motif_weight = value
+                    except: print("input error")
+                elif line == "pause":
+                    while True:
+                        with open('control.txt', 'r') as reader:
+                            line = reader.readlines()[0].strip()
+                        if line != "pause":
+                            break
+                        else:
+                            print("pause...")
+                            time.sleep(10)
+
+            if self.step > 2000 and self.step % 100 == 0:
+                std = np.std(np.array(E_tracker)[-1000:])
+                n_std = std / np.array(E_tracker)[-1000:].mean()
+                print("std: " + str(std))
+                if abs(std) < 0.02:
+                    break
+
+
 
 
         ########################################
@@ -506,6 +563,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
         self.best_metrics["motifweight"] = self.motif_weight
         self.best_metrics["motifmode"] = self.motifmode
+        self.best_metrics["steps"] = self.step
 
         # Dump distogram:
         best_distogram_distribution = structure_predictions['dist'].detach().cpu().numpy()
