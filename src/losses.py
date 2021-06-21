@@ -168,7 +168,7 @@ class Motif_Satisfaction(torch.nn.Module):
                 for m1 in motifs[:]:
                     for i in range(m1[5],m1[6]+1):
                         m1i = i - m1[5] #local index
-                        s1i = m1[0]+m1i  #template index
+                        s1i = m1[0]+m1i #template index
                         c1 = m1[3][m1i]
                         if c1 == 's' or c1 == 'b': #contraint is structural?
                             for m2 in motifs[:]:
