@@ -18,6 +18,7 @@ sys.path[0:0] = [str(script_dir / "src"), str(script_dir)]
 import io
 import mcmc
 import utils
+from utils import definegroupbydist
 import config as cfg
 
 def get_sequence(i, L, aa_valid, seed_file=None):
@@ -94,6 +95,14 @@ def main():
     maxseqlen = cfg.LEN
     use_random_motif_mode = cfg.motif_placement_mode == -1
 
+    if cfg.use_predef_start:
+        Print("Using predefiend starting point")
+        motifs = cfg.motifs
+        cfg.sequence_constraint = cfg.b_seq_cn
+        cfg.motif_placement_mode = -2
+        cfg.LEN = len(cfg.best_seq)
+        cfg.MCMC["BETA_START"] = 500
+
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
@@ -106,10 +115,10 @@ def main():
                 break
 
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
-            cfg.LEN = np.random.randint(mlen+1, maxseqlen)
+            cfg.LEN = np.random.randint(mlen+20, maxseqlen)
 
         if use_random_motif_mode:
-            cfg.motif_placement_mode = np.random.randint(0,4)
+            cfg.motif_placement_mode = np.random.randint(0,6)
 
         mcmc_optim = mcmc.MCMC_Optimizer(
             cfg.LEN,
@@ -123,10 +132,14 @@ def main():
             target_motif_path=cfg.target_motif_path,
             motifs = motifs,
             motifmode = cfg.motif_placement_mode,
-            motif_weight = np.random.uniform(1,cfg.motif_weight_max)
+            motif_weight = np.random.uniform(1,cfg.motif_weight_max),
+            bkg_weight = cfg.BKG_WEIGHT
         )
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
+
+        if cfg.use_predef_start:
+            start_seq = cfg.best_seq
 
         with autocast():
             metrics = mcmc_optim.run(start_seq)
