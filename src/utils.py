@@ -12,6 +12,8 @@ import string
 from matplotlib import pylab as plt
 import numpy as np
 import torch
+import math
+import random
 
 # pkg
 import config as cfg
@@ -88,6 +90,72 @@ def parse_a3mseq(seq):
 
     return msa
 
+def definegroupbydist(motifs, motif_npz_path, mode = 4):
+    template = dict(np.load(motif_npz_path))["dist"] #distancemap
+
+    distmat = np.zeros((len(motifs),len(motifs),2)) #matrix motif x motif [sum,count]
+
+    k = 0
+    for m1 in motifs[:]:
+        r1 = range(0,m1[2])
+        if mode == 5: r1 = range(m1[2]-1,m1[2]) #use only terminal residues?
+        for i in r1: #local index
+            s1i = m1[0]+i  #template index
+            #c1 = m1[3][i]
+            #if c1 == 's' or c1 == 'b': #contraint is structural?
+            l = 0
+            for m2 in motifs[:]:
+                r2 = range(0,m2[2])
+                if mode == 5: r2 = range(0,1) #use only terminal residues?
+                for j in r2:
+                    s2i = m2[0]+j  #template index
+                    #c2 = m2[3][j]
+                    #if c2 == 's' or c2 == 'b': #contraint is structural?
+                    dist = template[s1i,s2i]
+                    if dist > 0:
+                        distmat[k,l,0] = distmat[k,l,0] + dist #summed distance
+                        distmat[k,l,1] = distmat[k,l,1] + 1 #count number of distances
+                l = l + 1
+
+        for i in range(0,len(motifs)):
+            if distmat[k,i,1] > 0.5: distmat[k,i,0] = distmat[k,i,0]/distmat[k,i,1] #calculate average
+            else: distmat[k,i,0] = 30 #fix no contacts
+
+        k = k + 1
+
+    bestorder = list(range(0,len(motifs)))
+    order = bestorder.copy()
+    bestscore = 99999999999999
+    for i in range(0,80000):
+        random.shuffle(order)
+        score = motifdistscore(distmat, order, mode)
+        if score < bestscore:
+            bestorder = order.copy()
+            bestscore = score
+        else: order = bestorder.copy()
+
+    print(bestscore)
+    print(bestorder)
+
+    p = 0
+    for i in bestorder:
+        if p < len(bestorder) - 1:
+            print(distmat[bestorder[p],bestorder[p+1],0])
+        motifs[i][4] = p
+        p = p + 1
+
+    return motifs
+
+def motifdistscore(distmat, order, mode = 4):
+    score = 0
+    for i in range(0,len(order) - 1):
+        dist = distmat[order[i],order[i+1],0]
+        score = score + dist*dist
+        if mode == 4 and i < len(order)-2:
+            dist = distmat[order[i],order[i+2],0]
+            score = score + dist
+
+    return score
 
 def aa2idx(seq: str) -> np.ndarray:
     """Return the sequence of characters as a list of integers."""
@@ -185,8 +253,14 @@ def plot_progress(E_list, savepath, title=""):
     """Save a plot of sequence losses to the given path."""
     x = np.array(range(len(E_list)))
     y = np.array(E_list)
+    mean = []
+    for i in range(0,len(x)):
+        if i == 0: mean.append(y[0])
+        elif i > 1000: mean.append(y[i]+np.std(y[i-1000:i]))
+        else: mean.append(y[i]+np.std(y[0:i]))
 
     plt.plot(x, y, "o-")
+    plt.plot(x,mean,label = "std")
     plt.ylabel("Sequence Loss")
     plt.xlabel("N total attempted mutations")
     plt.title(title, fontsize=14)
