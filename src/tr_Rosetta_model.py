@@ -13,9 +13,10 @@ from torch import nn
 import numpy as np
 import torch
 import torch.nn.functional as F
+from torch.cuda.amp import autocast
 
 # pkg
-from utils import d, parse_a3m, plot_distogram, distogram_distribution_to_distogram, average_dict
+from utils import d, parse_a3m, parse_a3mseq,plot_distogram, distogram_distribution_to_distogram, average_dict
 
 def msa2pssm(msa1hot, w):
     """Return a PSSM from a 1-hot MSA."""
@@ -174,7 +175,6 @@ class trRosettaNetwork(nn.Module):
         self.to_prob_omega = nn.Sequential(conv2d(filters, 25, 1), nn.Softmax(dim=1))
 
 
-    @torch.no_grad() #FFT
     def forward(self, x):
         """Compute the anglegrams and distograms."""
 
@@ -237,8 +237,7 @@ class trRosettaEnsemble(nn.Module):
             )
             self.models[i].to(d()).eval()
 
-    @torch.no_grad() #FFT
-    def forward(self, x, use_n_models=None, dump_distograms_path=None):
+    def forward(self, x, use_n_models=None, dump_distograms_path=None, detach=False):
         """Compute the anglegrams and distograms using an ensemble."""
 
         if use_n_models is None:
@@ -246,8 +245,9 @@ class trRosettaEnsemble(nn.Module):
 
         # TODO: Make this forward pass use parallel GPU threads
         outputs = []
-        for i, structure_model in enumerate(self.models[:use_n_models]): #models = trRosettaNetwork instances
-            outputs.append(structure_model(x)) #execute tr network using 'model_input' as input. Model_input is 526 times LxL tensors in a tensor container
+        with autocast():
+            for i, structure_model in enumerate(self.models[:use_n_models]): #models = trRosettaNetwork instances
+                outputs.append(structure_model(x)) #execute tr network using 'model_input' as input. Model_input is 526 times LxL tensors in a tensor container
 
         if dump_distograms_path:
             dump_distograms_path = Path(dump_distograms_path)
@@ -258,4 +258,4 @@ class trRosettaEnsemble(nn.Module):
                     distogram, dump_distograms_path / f"dist_model_{i:02}.jpg"
                 )
 
-        return average_dict(outputs)
+        return average_dict(outputs, detach=detach)
