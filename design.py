@@ -5,6 +5,7 @@
 from pathlib import Path
 import linecache
 import sys
+from datetime import datetime
 
 # lib
 import numpy as np
@@ -18,7 +19,7 @@ sys.path[0:0] = [str(script_dir / "src"), str(script_dir)]
 import io
 import mcmc
 import utils
-from utils import definegroupbydist
+from utils import definegroupbydist, seqfrommotifs
 import config as cfg
 
 def get_sequence(i, L, aa_valid, seed_file=None):
@@ -103,6 +104,7 @@ def main():
         cfg.LEN = len(cfg.best_seq)
         cfg.MCMC["BETA_START"] = 500
 
+    output_file_name = "results/" + datetime.now().strftime("%Y-%m-%d_%H%M%S") + "_metrics_" + cfg.experiment_name + ".csv"
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
@@ -111,7 +113,7 @@ def main():
         with open('control.txt', 'r') as reader:
             line = reader.readlines()[0].strip()
             if i > 0 and line == "exit":
-                print("exiting due to command")
+                print("Exiting due to command")
                 break
 
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
@@ -140,6 +142,8 @@ def main():
 
         if cfg.use_predef_start:
             start_seq = cfg.best_seq
+        elif cfg.use_motifs and cfg.motif_placement_mode == 2:
+            start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
 
         with autocast():
             metrics = mcmc_optim.run(start_seq)
@@ -147,7 +151,8 @@ def main():
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
-    with (script_dir / "metrics.csv").open("w") as f:
+
+    with (script_dir / output_file_name).open("w") as f:
         i = 0
         f.write(f"num")
         for k,v in seq_metrics[0].items():
