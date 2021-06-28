@@ -1,7 +1,10 @@
 # general
 _ignore*
+__pycache__
 .venv
 results
+batchpredict
+batchinput.txt
 
 # editors
 .idea
