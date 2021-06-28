@@ -55,13 +55,21 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                 m[5] = np.random.randint(0,seq_L-m[2]+1)
                 m[6] = m[5]+m[2]-1
         elif mode == 2:
-            spacing = seq_L/len(motifs)
-            pos = int(spacing/2)
+            spacing = (seq_L-sum)/(1+len(motifs))
+            pos = int(spacing)
             for m in motifs[:]:
-                    buffer = int(abs(np.random.normal(spacing,spacing/2)))
+                    buffer = int(abs(np.random.normal(spacing,spacing)))
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
-                    pos = pos + buffer
+                    pos = m[6] + buffer
+        elif mode == 2.5:
+            spacing = int((seq_L-sum-6)/(len(motifs)-1)) #calculate spacing for even placement with short unrestrained tails
+            print("spacing: " + str(spacing))
+            pos = int(seq_L-sum-((len(motifs)-1)*spacing)) #center the motifs
+            for m in motifs[:]:
+                    m[5] = pos
+                    m[6] = m[5]+m[2]-1
+                    pos = m[6]+spacing
         elif mode == 3:
             motifs.sort(key=motifsort)
             for m in motifs[:]: #set all same group
@@ -203,7 +211,7 @@ class MCMC_Optimizer(torch.nn.Module):
             self.motifs = _motifs
             if _seq_con is not None: sequence_constraint = _seq_con
 
-        print("motif weigth: " + str(motif_weight))
+        print("motif weight: " + str(motif_weight))
         for m in self.motifs: print(m)
         print(sequence_constraint)
 
@@ -402,7 +410,7 @@ class MCMC_Optimizer(torch.nn.Module):
         else:
             self.beta = self.beta * self.coef
 
-        self.beta = np.clip(self.beta, 5, 200)
+        self.beta = np.clip(self.beta, 5, 2000)
 
         return seq
 
@@ -418,8 +426,6 @@ class MCMC_Optimizer(torch.nn.Module):
         seq = aa2idx(start_seq).copy().reshape([1, self.seq_L])
 
         nsave = min(max(1, self.N // 20),50)
-        benchmark = None #3*22425*math.pow(self.seq_L,-1.757873789)
-        badcount = 0
         E, E_tracker = np.inf, []
         self.bad_accepts = []
         self.good_accepts = []
@@ -441,10 +447,9 @@ class MCMC_Optimizer(torch.nn.Module):
 
             # Preprocess the sequence
             seq_curr = torch.from_numpy(seq_curr).long()
-            model_input, msa1hot = prep_seq(seq_curr) #no clue what "model_input" is
+            model_input, msa1hot = prep_seq(seq_curr)
 
             # probe effect of mutation
-            #with autocast(): #FFT, may not be correct place to autocast3
             structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
                 model_input, use_n_models=cfg.n_models
             )
@@ -469,23 +474,23 @@ class MCMC_Optimizer(torch.nn.Module):
                     f"bad/good_accepts: {np.sum(self.bad_accepts[-100:])}/{np.sum(self.good_accepts[-100:])}",
                     flush=True,
                 )
-                print("motif loss: " + str(metrics["motif_loss"]))
-                print("step diff: " + str(self.step - self.best_step))
+                print(f"Motif Loss: " + str(metrics["motif_loss"].cpu().detach().numpy()))
+                print("Steps since best: " + str(self.step - self.best_step))
 
                 if self.step % (nsave * 2) == 0:
-                    distogram_distribution = (
-                        structure_predictions['dist'].detach().cpu().numpy()
-                    )
-                    distogram = distogram_distribution_to_distogram(
-                        distogram_distribution
-                    )
-                    plot_distogram(
-                        distogram,
-                        self.results_dir
-                        / "distogram_evolution"
-                        / f"{self.step:06d}_{E_curr:.4f}.jpg",
-                        clim=cfg.limits["dist"],
-                    )
+                    #distogram_distribution = (
+                    #    structure_predictions['dist'].detach().cpu().numpy()
+                    #)
+                    #distogram = distogram_distribution_to_distogram(
+                    #    distogram_distribution
+                    #)
+                    #plot_distogram(
+                    #    distogram,
+                    #    self.results_dir
+                    #    / "distogram_evolution"
+                    #    / f"{self.step:06d}_{E_curr:.4f}.jpg",
+                    #    clim=cfg.limits["dist"],
+                    #)
                     plot_progress(
                         E_tracker,
                         self.results_dir / "progress.jpg",
@@ -533,7 +538,7 @@ class MCMC_Optimizer(torch.nn.Module):
                             break
                         else:
                             print("pause...")
-                            time.sleep(10)
+                            time.sleep(30)
 
             if self.step > 2000 and self.step % 100 == 0:
                 std = np.std(np.array(E_tracker)[-1000:])
@@ -557,13 +562,14 @@ class MCMC_Optimizer(torch.nn.Module):
             seq_curr, structure_predictions, msa1hot, track=True
         )
 
-        for key in self.best_metrics.keys():
-            self.best_metrics[key] = v(metrics[key])
-        self.best_metrics["sequence"] = self.best_sequence
+        #for key in self.best_metrics.keys():
+        #    self.best_metrics[key] = v(metrics[key])
 
+        self.best_metrics["sequence"] = self.best_sequence
         self.best_metrics["motifweight"] = self.motif_weight
         self.best_metrics["motifmode"] = self.motifmode
         self.best_metrics["steps"] = self.step
+        self.best_metrics["motifs"] = str(self.motifs.copy())
 
         # Dump distogram:
         best_distogram_distribution = structure_predictions['dist'].detach().cpu().numpy()
