@@ -18,7 +18,7 @@ import random
 # pkg
 import config as cfg
 
-def d(tensor=None, force_cpu=False):
+def d(tensor=None, force_cpu=cfg.FORCECPU):
     """Return 'cpu' or 'cuda' depending on context. Is used to set tensor calculation device"""
     if force_cpu:
         return "cpu"
@@ -157,6 +157,24 @@ def motifdistscore(distmat, order, mode = 4):
 
     return score
 
+def seqfrommotifs(motifs,sequence, bkgseq):
+    newseq = ""
+    for pos in range(len(bkgseq)):
+        use_bkg = True
+        for m in motifs[:]:
+            if pos >= m[5] and pos <= m[6]:
+                mpos = pos - m[5]
+                if m[3][mpos] == 'b' or m[3][mpos] == 's':
+                    templatepos = m[0] + mpos
+                    use_bkg = False
+                    newseq += sequence[templatepos]
+                break
+
+        if use_bkg == True: newseq += bkgseq[pos]
+
+    return newseq
+
+
 def aa2idx(seq: str) -> np.ndarray:
     """Return the sequence of characters as a list of integers."""
     # convert letters into numbers
@@ -253,14 +271,14 @@ def plot_progress(E_list, savepath, title=""):
     """Save a plot of sequence losses to the given path."""
     x = np.array(range(len(E_list)))
     y = np.array(E_list)
-    mean = []
-    for i in range(0,len(x)):
-        if i == 0: mean.append(y[0])
-        elif i > 1000: mean.append(y[i]+np.std(y[i-1000:i]))
-        else: mean.append(y[i]+np.std(y[0:i]))
+    #mean = []
+    #for i in range(0,len(x)):
+    #    if i == 0: mean.append(y[0])
+    #    elif i > 1000: mean.append(y[i]+np.std(y[i-1000:i]))
+    #    else: mean.append(y[i]+np.std(y[0:i]))
 
     plt.plot(x, y, "o-")
-    plt.plot(x,mean,label = "std")
+    #plt.plot(x,mean,label = "std")
     plt.ylabel("Sequence Loss")
     plt.xlabel("N total attempted mutations")
     plt.title(title, fontsize=14)
