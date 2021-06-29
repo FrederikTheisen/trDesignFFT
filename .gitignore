@@ -5,6 +5,7 @@ __pycache__
 results
 batchpredict
 batchinput.txt
+src/__pycache__
 
 # editors
 .idea
