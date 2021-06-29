@@ -24,28 +24,43 @@ torch.cuda.empty_cache()
 # pkg
 # pylint: disable=wrong-import-position
 script_dir = Path(__file__).parent
+print(script_dir)
 sys.path[0:0] = [str(script_dir / "src"), str(script_dir)]
 
-from tr_Rosetta_model import trRosettaEnsemble, preprocess
-import utils
+from tr_Rosetta_model import trRosettaEnsemble, preprocess, preprocessseq
 
-def get_ensembled_predictions(input_file, output_file=None, seq=None):
+import utils
+from utils import parse_a3mseq
+
+def setup_results_dir(experiment_name):
+    """Create the directories for the results."""
+    root = Path(__file__).parent.parent
+    result_path = root / "batchpredict"
+    results_dir = (
+        result_path
+        / experiment_name
+    )
+    results_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Writing results to {results_dir}")
+    return results_dir
+
+@torch.no_grad()
+def get_ensembled_predictions(input_file=None, output_file=None, seq=None, index = None):
     """Use an ensemble of pre-trained networks to predict the structure of an MSA file."""
     ensemble_model = trRosettaEnsemble()
 
     start = time.time()
 
-    if not seq:
-        input_path = Path(input_file)
-        input_data, _ = preprocess(msa_file=input_path)
-    else:
-        input_data, _ = preprocessseq(seq)
+    input_path = Path(input_file)
+    input_data, _ = preprocess(msa_file=input_path)
 
     output_path = (
         Path(output_file)
         if output_file
-        else input_path.parent / f"{input_path.stem}.npz"
+        else input_path.parent / "predict" / f"{input_path.stem}.npz"
     )
+
+    print(output_path)
 
     # prob_distance, prob_omega, prob_theta, prob_phi
     torch.cuda.empty_cache()
@@ -53,6 +68,8 @@ def get_ensembled_predictions(input_file, output_file=None, seq=None):
         outputs = [model(input_data) for model in ensemble_model.models]
 
     averaged_outputs = utils.average_dict(outputs, detach = True)
+
+    #averaged_outputs = ensemble_model(input_data,use_n_models=10,detach = True)
 
     end = time.time()
     print("NN runtime: " + str(end - start))
@@ -90,13 +107,13 @@ def main():
     if len(args) > 2:
         i = 0
         for arg in args:
-            if arg == "-seg":
+            if arg == "-seq":
                 useseq = True
                 seq = args[i+1]
             if arg == "-path":
                 path = args[i+1].strip()
             i = i+1
-    if not 1 <= len(args) <= 2:
+    if not 1 <= len(args) <= 4:
         show_usage = True
         print("ERROR: Unknown number of arguments.\n\n")
 
@@ -107,7 +124,7 @@ def main():
     if not useseq:
         get_ensembled_predictions(*args)  # pylint: disable=no-value-for-parameter
     else:
-        get_ensembled_predictions(args[0], seq=seq)
+        get_ensembled_predictions(output_file=path, seq=seq)
 
 
 if __name__ == "__main__":
