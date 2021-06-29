@@ -142,7 +142,7 @@ def main():
 
         if cfg.use_predef_start:
             start_seq = cfg.best_seq
-        elif cfg.use_motifs and cfg.motif_placement_mode == 2:
+        elif cfg.use_motifs:
             start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
 
         with autocast():
