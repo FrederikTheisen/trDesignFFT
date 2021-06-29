@@ -47,7 +47,6 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         return placemotifs(motifs[:-1], seq_L, sequence, mode)
 
     while not valid:
-        #set random start positions
         if mode == -2:
             return motifs, None
         if mode == 0 or mode == 1:
@@ -410,7 +409,7 @@ class MCMC_Optimizer(torch.nn.Module):
         else:
             self.beta = self.beta * self.coef
 
-        self.beta = np.clip(self.beta, 5, 2000)
+        self.beta = np.clip(self.beta, 5, 1000)
 
         return seq
 
@@ -544,7 +543,7 @@ class MCMC_Optimizer(torch.nn.Module):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("std: " + str(std))
-                if abs(std) < 0.02:
+                if abs(std) < 0.01:
                     break
 
 
