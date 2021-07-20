@@ -285,3 +285,11 @@ def plot_progress(E_list, savepath, title=""):
     plt.tight_layout()
     plt.savefig(savepath)
     plt.close("all")
+
+def plot_muts(input, savepath):
+    x = np.array(range(len(input)))
+    y = np.array(input)
+    plt.plot(x,y)
+    plt.tight_layout()
+    plt.savefig(savepath)
+    plt.close()
