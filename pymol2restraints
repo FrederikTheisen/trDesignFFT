@@ -1,25 +1,41 @@
 myspace = {'colors': []}
-cmd.select("res","name N and not hetatm", state = 1)
+cmd.select("res","enabled and name N and not hetatm", state = 1)
 cmd.iterate("res", 'colors.append(color)', space=myspace)
-seq = cmd.get_fastastr('all and not hetatm', state = 1)
+seq = cmd.get_fastastr('enabled and not hetatm', state = 1)
 idx = seq.index('\n')
 seq = seq[idx+1:].strip().replace('\n','').replace('\r','').strip().replace('\n','').replace('\n','')
 colors = myspace['colors']
 rtype = ''
 mpos = ''
+mlen = 0
 for c in colors:
-  if c == 3:
-    rtype = rtype + 'b'
+  mlen += 1
+  if c == 3: #green
+    rtype = rtype + 'g'
     mpos = mpos + '1'
-  elif c == 4:
-    rtype = rtype + 's'
+  elif c == 4: #red
+    rtype = rtype + 'r'
     mpos = mpos + '1'
-  else:
+  elif c == 2: #blue
+    rtype = rtype + '-'
+    mpos = mpos + '1'
+  elif c == 8: #magenta
+    rtype = rtype + 'm'
+    mpos = mpos + '1'
+  elif c == 0: #white
     rtype = rtype + '-'
     mpos = mpos + '-'
+    mlen -= 1
+  elif c == 5: #cyan/separate motif group, highly restrained
+    rtype = rtype + 'm'
+    mpos = mpos + '9'
+  else:
+    print(c)
+    exit()
 
 
 print(len(seq),len(rtype),len(mpos), len(colors))
+print("mlen: " + str(mlen))
 
 print("sequence_constraint = \'\'\'" + seq.replace('\n','') + "\'\'\'.replace('\\n','')")
 print("motif_constraint = \'\'\'" + rtype + "\'\'\'.replace('\\n','')")
