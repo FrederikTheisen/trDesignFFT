@@ -151,6 +151,7 @@ class Motif_Satisfaction(torch.nn.Module):
         self.device = torch.device(d())
         self.motif = dict(np.load(motif_npz_path))
         self.mask = mask
+        self.flatmask = torch.clip(mask,0,1)
         self.keys = keys or Motif_Satisfaction.DEFAULT_KEYS
         self.seq_L = self.mask.shape[0]
         self.motifs = motifs
@@ -168,17 +169,17 @@ class Motif_Satisfaction(torch.nn.Module):
                 for m1 in motifs[:]:
                     for i in range(m1[5],m1[6]+1):
                         m1i = i - m1[5] #local index
-                        s1i = m1[0]+m1i #template index
+                        s1i = m1[0]+m1i #template 1 index
                         c1 = m1[3][m1i]
-                        if c1 == 's' or c1 == 'b': #contraint is structural?
+                        if c1 in cfg.structure_restraint_letters: #contraint is structural?
                             for m2 in motifs[:]:
                                 if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
                                     continue
                                 for j in range(m2[5],m2[6]+1):
                                     m2i = j - m2[5]  #local index
-                                    s2i = m2[0]+m2i  #template index
+                                    s2i = m2[0]+m2i  #template 2 index
                                     c2 = m2[3][m2i]
-                                    if c2 == 's' or c2 == 'b': #contraint is structural?
+                                    if c2 in cfg.structure_restraint_letters: #contraint is structural?
                                         restraint[i,j] = map[s1i,s2i]
 
                 self.motif[key] = restraint
@@ -220,13 +221,110 @@ class Motif_Satisfaction(torch.nn.Module):
         """ returns a loss wrt a target motif """
 
         # - Get the probabilities for the bins corresponding to the target motif
+        # bin_indices contains the target bin#, gather takes the probability of that bin from distribution, which contains a probability for each bin#
         # - Compute the crossentropy and average over the entire LxL matrix
         # - Multiply with the mask
         motif_loss = 0
+        motif_loss_pos = to_tensor([0] * self.seq_L)
+
         for key in self.keys:
             distribution = structure_distributions[key].squeeze()
             probs = torch.gather(distribution, 0, self.bin_indices[key])
             log_probs = torch.log(probs)
+            #masked = (log_probs * self.mask)
             motif_loss -= (log_probs * self.mask).mean()
+            #motif_loss_pos -= (log_probs * self.flatmask).mean(dim=[0,1])
 
-        return motif_loss
+        #motif_loss_pos = torch.clip(motif_loss_pos, motif_loss*0.5, motif_loss*2)
+
+        return motif_loss, motif_loss_pos
+
+
+class Site_Satisfaction(torch.nn.Module):
+
+    DEFAULT_KEYS = ["dist", "omega", "theta", "phi"]
+
+    def __init__(self, motif_npz_path, mask=None, keys=None, motifs = None):
+        super().__init__()
+
+        self.device = torch.device(d())
+        self.motif = dict(np.load(motif_npz_path))
+        self.mask = mask
+        self.keys = keys or Motif_Satisfaction.DEFAULT_KEYS
+        self.seq_L = self.mask.shape[0]
+        self.motifs = motifs
+
+        #rearrange npz data
+        if self.motifs is not None:
+            print("Site loss function")
+            maps = np.array([])
+            for key in self.keys:
+                map = self.motif[key]
+                restraint = np.zeros((self.seq_L, self.seq_L))
+
+                for m1 in motifs[:]:
+                    for i in range(m1[5],m1[6]+1):
+                        m1i = i - m1[5] #local index
+                        s1i = m1[0]+m1i #template index
+                        c1 = m1[3][m1i]
+                        if c1 == 'b': #contraint is structural?
+                            for m2 in motifs[:]:
+                                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                                    continue
+                                for j in range(m2[5],m2[6]+1):
+                                    m2i = j - m2[5]  #local index
+                                    s2i = m2[0]+m2i  #template index
+                                    c2 = m2[3][m2i]
+                                    if c2 == 'b': #contraint is structural?
+                                        restraint[i,j] = map[s1i,s2i]
+
+                self.motif[key] = restraint
+
+
+        # Get the bin_indices for each of the motif_targets:
+        # TODO make this allow linear combinations of the two closest bins
+        self.bin_indices = {}
+        for key in self.keys:
+            indices = np.abs(
+                cfg.bin_dict_np[key][np.newaxis, np.newaxis, :]
+                - self.motif[key][:, :, np.newaxis]
+            ).argmin(axis=-1)
+
+            # Fix the no-contact locations:
+            no_contact_locations = np.argwhere(self.motif[key] == 0)
+            indices[no_contact_locations[:, 0], no_contact_locations[:, 1]] = 0
+            self.bin_indices[key] = (
+                torch.from_numpy(indices).long().to(d()).unsqueeze(0)
+            )
+
+        self.close_bin_indices = {}
+        key = "dist"
+        indices = np.abs(
+            cfg.bin_dict_np[key][np.newaxis, np.newaxis, :]
+            - self.motif[key][:, :, np.newaxis]
+        ).argmin(axis=-1)
+
+        indices = np.clip(indices - 4, 0, 37)
+
+        # Fix the no-contact locations:
+        no_contact_locations = np.argwhere(self.motif[key] == 0)
+        indices[no_contact_locations[:, 0], no_contact_locations[:, 1]] = 0
+        self.close_bin_indices[key] = (
+            torch.from_numpy(indices).long().to(d()).unsqueeze(0)
+        )
+
+    def forward(self, structure_distributions):
+        """ returns a loss wrt a target motif """
+        motif_loss = 0
+        key = "dist"
+        distribution = structure_distributions[key].squeeze()
+
+        probs_correct = torch.gather(distribution, 0, self.bin_indices[key])
+        probs_close = torch.gather(distribution, 0, self.close_bin_indices[key])
+        probs_diff = torch.clip(1 + probs_correct - probs_close, 0.01, 1)
+        log_probs = torch.log(probs_diff*probs_diff*probs_diff)
+
+        site_loss -= (log_probs * self.mask).sum()
+
+
+        return site_loss
