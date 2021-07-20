@@ -9,6 +9,7 @@ from datetime import datetime
 
 # lib
 import numpy as np
+import random
 from torch.cuda.amp import autocast
 
 # pkg
@@ -71,10 +72,14 @@ def main():
                 m_open = True
                 motif = [i,i,0,constraint,int(group),0,0]
             elif m_open: #todo deal with no gap between two motifs
+                if motif[4] != int(group): #not same motif group. Close and open new.
+                    motifs.append(motif.copy())
+                    motif = [i,i,0,constraint,int(group),0,0]
+
                 motif[1] = i
                 motif[3] = motif[3] + constraint
 
-            if i == len(cfg.motif_constraint) - 1 and m_open: #close motif and append
+            if i == len(cfg.motif_constraint) - 1 and m_open: #at end of sequence, close motif and append
                 motifs.append(motif.copy())
 
         for m in motifs:
@@ -97,14 +102,18 @@ def main():
     use_random_motif_mode = cfg.motif_placement_mode == -1
 
     if cfg.use_predef_start:
-        Print("Using predefiend starting point")
+        print("Using predefiend starting point")
         motifs = cfg.motifs
-        cfg.sequence_constraint = cfg.b_seq_cn
+        cfg.sequence_constraint = cfg.best_seq
         cfg.motif_placement_mode = -2
         cfg.LEN = len(cfg.best_seq)
-        cfg.MCMC["BETA_START"] = 500
+        cfg.MCMC["BETA_START"] = 100
+    elif cfg.use_predef_motif:
+        print("Using predefiend motifs")
+        motifs = cfg.motifs
+        cfg.motif_placement_mode = -3
 
-    output_file_name = "results/" + datetime.now().strftime("%Y-%m-%d_%H%M%S") + "_metrics_" + cfg.experiment_name + ".csv"
+
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
@@ -117,10 +126,22 @@ def main():
                 break
 
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
-            cfg.LEN = np.random.randint(mlen+20, maxseqlen)
+            cfg.LEN = np.random.randint(mlen, maxseqlen)
 
         if use_random_motif_mode:
             cfg.motif_placement_mode = np.random.randint(0,6)
+
+        if i > 0:
+            cfg.seq_from_template = random.choice([True, False])
+            cfg.GRADIENT = random.choice([True, False])
+            cfg.MATRIX = random.choice([True, False])
+
+        print("GRADIENT: " + str(cfg.GRADIENT))
+        print("MATRIX: " + str(cfg.MATRIX))
+        print("TEMPLATE: " + str(cfg.seq_from_template))
+
+        mtf_weight = cfg.motif_weight_max
+        if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
 
         mcmc_optim = mcmc.MCMC_Optimizer(
             cfg.LEN,
@@ -134,7 +155,7 @@ def main():
             target_motif_path=cfg.target_motif_path,
             motifs = motifs,
             motifmode = cfg.motif_placement_mode,
-            motif_weight = np.random.uniform(1,cfg.motif_weight_max),
+            motif_weight = mtf_weight,
             bkg_weight = cfg.BKG_WEIGHT
         )
 
@@ -142,15 +163,20 @@ def main():
 
         if cfg.use_predef_start:
             start_seq = cfg.best_seq
-        elif cfg.use_motifs:
+        elif cfg.seq_from_template:
             start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
 
         with autocast():
             metrics = mcmc_optim.run(start_seq)
 
+
+        metrics["GRADIENT"] = str(cfg.GRADIENT)
+        metrics["TEMPLATE"] = str(cfg.seq_from_template)
+        metrics["MATRIX"] = str(cfg.MATRIX)
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
+    output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics" + ".csv"
 
     with (script_dir / output_file_name).open("w") as f:
         i = 0
