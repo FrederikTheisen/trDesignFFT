@@ -17,7 +17,7 @@ from losses import *  # pylint: disable=wildcard-import, unused-wildcard-import
 from tr_Rosetta_model import trRosettaEnsemble, prep_seq
 from utils import aa2idx, distogram_distribution_to_distogram, idx2aa, plot_progress
 import config as cfg
-from utils import definegroupbydist
+from utils import definegroupbydist, plot_muts
 
 
 def v(torch_value):
@@ -45,14 +45,37 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
     if (sum > seq_L):
         print("Sequence too short")
         return placemotifs(motifs[:-1], seq_L, sequence, mode)
+    elif sum == seq_L:
+        pos = 0
+        mode = -3
+        for m in motifs:
+            m[5] = pos
+            m[6] = m[5] + m[2] - 1
+            pos = pos + m[2]
 
     while not valid:
-        if mode == -2:
-            return motifs, None
         if mode == 0 or mode == 1:
             for m in motifs[:]:
                 m[5] = np.random.randint(0,seq_L-m[2]+1)
                 m[6] = m[5]+m[2]-1
+        elif mode == -2:
+            print("predefined motifs")
+            seq_con = ""
+            for i in range(0,seq_L):
+                restraint = "-"
+                for m in motifs:
+                    if i >= m[5] and i <= m[6]:
+                        mi = i - m[5] #local index
+                        c = m[3][mi]  #con type
+                        if c in cfg.structure_restraint_letters:
+                            restraint = sequence[i]
+                        continue
+
+                seq_con = seq_con + restraint
+
+            return motifs, seq_con
+        elif mode == -3:
+            break;
         elif mode == 2:
             spacing = (seq_L-sum)/(1+len(motifs))
             pos = int(spacing)
@@ -61,14 +84,29 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
                     pos = m[6] + buffer
-        elif mode == 2.5:
+
+        elif mode == 2.1:
             spacing = int((seq_L-sum-6)/(len(motifs)-1)) #calculate spacing for even placement with short unrestrained tails
-            print("spacing: " + str(spacing))
             pos = int(seq_L-sum-((len(motifs)-1)*spacing)) #center the motifs
             for m in motifs[:]:
                     m[5] = pos
                     m[6] = m[5]+m[2]-1
                     pos = m[6]+spacing
+        elif mode == 2.2:
+            motifs[0][5] = 0
+            motifs[0][6] = motifs[0][2]-1
+            motifs[-1][6] = seq_L - 1
+            motifs[-1][5] = seq_L - motifs[-1][2]
+            last = motifs[-1]
+            spacing = int((seq_L-sum)/(len(motifs)-1))
+            pos = motifs[0][6]
+            for m in motifs[1:-1]:
+                buffer = int(abs(np.random.normal(spacing,spacing)))
+                pos += 1 + buffer
+                m[5] = pos
+                m[6] = m[5] + m[2] - 1
+                pos = m[6]
+
         elif mode == 3:
             motifs.sort(key=motifsort)
             for m in motifs[:]: #set all same group
@@ -84,6 +122,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
         i = i + 1
         for m1 in motifs[:]:
             if m1[6] > seq_L - 1:
+                print("ends outside")
                 valid = False
                 continue
             for m2 in motifs[:]:
@@ -117,7 +156,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                 if i >= m[5] and i <= m[6]:
                     mi = i - m[5] #local index
                     c = m[3][mi]  #con type
-                    if c == "a" or c == "b":
+                    if c in cfg.sequence_restraint_letters:
                         si = m[0]+mi  #template index
                         restraint = sequence[si]
                         constrain_seq = True
@@ -131,7 +170,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
     return motifs, seq_con
 
 
-def createmask(motifs, seq_L, save_dir):
+def createmask(motifs, seq_L, save_dir, is_site_mask = False):
     """Create mask for discontinous motifs"""
 
     #setup mask size
@@ -141,21 +180,25 @@ def createmask(motifs, seq_L, save_dir):
     for m1 in motifs[:]:
         for i in range(m1[5],m1[6]+1):
             c1 = m1[3][i-m1[5]]
-            if c1 == 's' or c1 == 'b': #contraint is structural?
+            if c1 in cfg.structure_restraint_letters:  #contraint is structural?
                 for m2 in motifs[:]:
-                    if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                    if math.fabs(m2[4]-m1[4]) > 1: #motifs are not in restrained groups?
                         continue
                     for j in range(m2[5],m2[6]+1):
                         c2 = m2[3][j-m2[5]]
-                        if c2 == 's' or c2 == 'b': #contraint is structural?
-                            motif_mask[i,j] = 1
-                            motif_mask_g[i,j] = m1[4]+1
+                        if c2 in cfg.structure_restraint_letters:
+                            v1 = cfg.structure_restraint_mask_values[c1]
+                            v2 = cfg.structure_restraint_mask_values[c2]
+                            value = v1*v2
+                            motif_mask[i,j] = value
+                            motif_mask_g[i,j] = value**0.5
 
-    plot_values = motif_mask_g.copy()
-    plot_distogram(
-        plot_values,
-        save_dir / f"motif_mask_groups.jpg",
-    )
+    if not is_site_mask:
+        plot_values = motif_mask_g.copy()
+        plot_distogram(
+            plot_values,
+            save_dir / f"motif_mask_groups.jpg",
+        )
 
     return motif_mask
 
@@ -204,6 +247,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.seq_L = L
         self.motifs = None
         self.motifmode = motifmode
+        self.use_sites = cfg.use_sites
         print("Sequence Length: " + str(self.seq_L))
         if motifs is not None:
             _motifs,_seq_con = placemotifs(motifs, self.seq_L, sequence_constraint, mode=self.motifmode)
@@ -254,6 +298,29 @@ class MCMC_Optimizer(torch.nn.Module):
         self.motif_weight = motif_weight
         self.bkg_weight = bkg_weight
 
+        self.matrix_setup()
+
+    def matrix_setup(self):
+        self.substitution_matrix = {}
+        with open("src/matrix.txt") as reader:
+            columns = reader.readline().strip().split()[:-4]
+            lines = reader.readlines()
+            for aa in columns[:-4]:
+                if aa in cfg.RM_AA: continue
+                self.substitution_matrix[aa] = {}
+
+
+            for line in lines[:-4]:
+                data = line.strip().split()
+                aa1 = data[0]
+                sub = {}
+                for i in range(0,len(columns)):
+                    aa2 = columns[i]
+                    if aa2 in cfg.RM_AA: continue
+                    value = data[i+1]
+                    sub[aa2] = float(value)
+
+                self.substitution_matrix[aa1] = dict(sorted(sub.items(), key=lambda x: x[1]))
 
     def setup_results_dir(self, experiment_name):
         """Create the directories for the results."""
@@ -294,8 +361,19 @@ class MCMC_Optimizer(torch.nn.Module):
                 self.target_motif_path, mask=self.motif_mask, save_dir=self.results_dir, motifs = self.motifs
             )
 
+            self.site_weight = 0
+            if self.use_sites:
+                self.site_mask = createmask(self.motifs, self.seq_L, self.results_dir, is_site_mask = True)
+                self.site_mask = torch.from_numpy(self.site_mask).long().to(d())
+                self.site_mask.fill_diagonal_(0)
+
+                self.site_sat_loss = Site_Satisfaction(
+                    self.target_motif_path, mask=self.site_mask, motifs = self.motifs
+                )
+
+
         # Apply the background KL-loss only under the hallucination_mask == 1 region
-        self.hallucination_mask = 1 - self.motif_mask
+        self.hallucination_mask = 1 - torch.clip(self.motif_mask, 0, 1)
         self.hallucination_mask.fill_diagonal_(0)
 
     def loss(self, sequence, structure_predictions, msa1hot, track=False):
@@ -324,46 +402,51 @@ class MCMC_Optimizer(torch.nn.Module):
 
         # Motif Loss:
         if self.target_motif_path is not None: #check if target motif has been specified
-            motif_loss = self.motif_sat_loss(structure_predictions) #motif_sat_loss = MotifSatisfaction object (nn object)
+            motif_loss, motif_loss_pos = self.motif_sat_loss(structure_predictions) #motif_sat_loss = MotifSatisfaction object (nn object)
         else:
             motif_loss = 0 #no target motif = no loss
 
+        if self.use_sites:
+            site_loss = self.site_sat_loss(structure_predictions)
+        else:
+            site_loss = torch.tensor(0)
+
         # total loss
         loss_v = (
-            self.bkg_weight * background_loss + self.aa_weight * loss_aa + self.motif_weight * motif_loss
+            self.bkg_weight * background_loss + self.aa_weight * loss_aa + self.motif_weight * motif_loss + self.site_weight * site_loss
         )
 
         metrics = {}
         if track:
             metrics["aa_weight"] = self.aa_weight
             metrics["background_loss"] = background_loss
+            metrics["motif_loss"] = motif_loss
+            metrics["site_loss"] = site_loss
             metrics["total_loss"] = loss_v
             metrics["TM_score_proxy"] = TM_score_proxy
-
-            if self.target_motif_path is not None:
-                metrics["motif_loss"] = motif_loss
 
         return loss_v, metrics
 
     def metropolis(self, seq, seq_curr, E_curr, E):
         """Compute the Metropolis criterion."""
+        accepted = True
+        deltaE = E_curr - E
 
         # Metropolis criterion
         if E_curr < E:  # Lower energy, replace!
             seq = np.copy(seq_curr)
             E = E_curr
-            self.n_accepted_mutations += 1
-            self.good_accepts.append(1)
         else:  # Higher energy, maybe replace..
-            self.good_accepts.append(0)
             if torch.exp((E - E_curr) * self.beta) > np.random.uniform():
                 seq = np.copy(seq_curr)
                 E = E_curr
                 self.bad_accepts.append(1)
                 self.n_accepted_bad_mutations += 1
-                self.n_accepted_mutations += 1
             else:
+                accepted = False
                 self.bad_accepts.append(0)
+
+        self.register_mutation_fitness(accepted, deltaE)
 
         # Update the best sequence:
         if E_curr < self.best_E:
@@ -379,18 +462,157 @@ class MCMC_Optimizer(torch.nn.Module):
 
         # Introduce a random mutation using the allowed aa_types:
         idx = np.random.randint(self.seq_L)
-        seq_curr[0, idx] = np.random.choice(self.aa_valid)
+
+        if cfg.GRADIENT:
+            _min = min(self.gradient)-1
+            _max = max(self.gradient)
+            _val = self.gradient[idx]
+
+            while _val < np.random.uniform(0, _max):
+                idx = np.random.randint(self.seq_L)
+                _val = self.gradient[idx]
+
+        from_aa = idx2aa(seq_curr[0])[idx]
+
+        #Perform mutation
+        if cfg.MATRIX and self.mutation_score[idx][0] is not None:
+
+            mins = min(self.mutation_score, key=lambda x: x[2])[2]
+            maxs = max(self.mutation_score, key=lambda x: x[2])[2]
+
+            if mins == maxs:
+                seq_curr[0, idx] = np.random.choice(self.aa_valid)
+            else:
+                mut = self.mutation_score[idx]
+                mut_score = mut[2]
+                options = []
+                substitution_vector = self.substitution_matrix[mut[1]]
+                sub_score = self.substitution_matrix[mut[0]][mut[1]]
+
+                if mut_score < 0: #good
+                    if sub_score < -1: options = self.select_mutation_options(substitution_vector, -1, True)
+                    else: options = self.select_mutation_options(substitution_vector, -2, True)
+                elif mut_score > 0.8 * maxs: #very bad
+                    #options = self.select_mutation_options(substitution_vector, 0, False)
+                    #options.append(mut[0])
+                    options.append(mut[0])
+                    print("very bad: " + str(idx) + " " + str(mut))
+                    self.reverse_log = True
+                else: #bad
+                    if sub_score < -1: options = self.select_mutation_options(substitution_vector, -1, True)
+                    else: options = self.select_mutation_options(substitution_vector, -1, False)
+
+                seq_curr[0, idx] = aa2idx(np.random.choice(options))
+
+                # if mut_score > maxs/2: #very bad
+                #     if sub_score > 0: #similar residue but very bad, revert mutation
+                #         options = [mut[0]]
+                #         print("revert: " + str(mut))
+                #     else: #try something different
+                #         options = self.select_mutation_options(substitution_vector, -2, False)
+                # elif mut_score > maxs/4: #bad
+                #     if sub_score > 1: #previous mutation not supposed to result in large effect, try something similar again
+                #         options = self.select_mutation_options(substitution_vector, -1, True)
+                #     elif sub_score < -2: #expected, try similar residue
+                #         options = self.select_mutation_options(substitution_vector, -2, True)
+                #     else: #try something different
+                #         options = self.select_mutation_options(substitution_vector, -1, False)
+                # elif mut_score > 0: #neutral/bad
+                #     if sub_score < -2: #better than expected, try something similar
+                #         options = self.select_mutation_options(substitution_vector, -1, True)
+                #     else: #try something not too similar
+                #         options = self.select_mutation_options(substitution_vector, -1, False)
+                # elif mut_score > mins/2: #good, try something not too different
+                #     options = self.select_mutation_options(substitution_vector, -2, True)
+                # else: #very good, try something similar
+                #     options = self.select_mutation_options(substitution_vector, -1, True)
+                #     print(mut, options)
+
+
+        else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
+
+        to_aa = idx2aa(seq_curr[0])[idx]
 
         if self.seq_constraint is not None:  # Fix the constraint:
             seq_curr = np.where(
                 self.seq_constraint_indices, self.seq_constraint, seq_curr
             )
 
-        if np.equal(seq_curr, seq).all():
-            # If the mutation did not change anything, retry
+        if np.equal(seq_curr, seq).all(): # If the mutation did not change anything, retry
             return self.mutate(seq)
-        # Otherwise, return the mutated sequence
+
+        # Store mutation information
+        self.current_mutations.append([idx, from_aa, to_aa])
+
         return seq_curr
+
+    def select_mutation_options(self, matrix, threshold = 0, above = True):
+        if above:
+            return [k for k,v in matrix.items() if v >= threshold]
+        else:
+            return [k for k,v in matrix.items() if v <= threshold]
+
+    def diff_to_weight(self, diff, increase = True):
+        if increase:
+            if diff >= 10: return 1.06766764161831
+            if diff == 9: return 1.09894934954181
+            if diff == 8: return 1.1390186502266
+            if diff == 7: return 1.1876555494257
+            if diff == 6: return 1.24337612797999
+            if diff == 5: return 1.30326532985632
+            if diff == 4: return 1.36307451853685
+            if diff == 3: return 1.41763510570564
+            if diff == 2: return 1.46155817319332
+            if diff == 1: return 1.49009933665338
+            else: return 1.2
+        else:
+            if diff > 5: return 0.997778200692352
+            if diff == 5: return 0.991212613275319
+            if diff == 4: return 0.9672932943352677
+            if diff == 3: return 0.9383506950652833
+            if diff == 2: return 0.878693868057473
+            if diff == 1: return 0.823500619483081
+            else: return 0.8
+
+    def register_mutation_fitness(self, accepted, deltaE):
+        if deltaE < -1: deltaE = 0
+        else: deltaE = float(deltaE.cpu().detach().numpy())
+
+        good = deltaE < 0
+
+        for mut in self.current_mutations:
+            self.good_mutations[mut[0]] += 1
+
+            if good:
+                self.good_accepts.append(1)
+                for i in range(mut[0]-15,mut[0]+16):
+                    if i > 0 and i < self.seq_L - 1:
+                        self.gradient[i] *= self.diff_to_weight(abs(mut[0]-i))
+            else:
+                self.good_accepts.append(0)
+                for i in range(mut[0]-8,mut[0]+9):
+                    if i > 0 and i < self.seq_L - 1:
+                        self.gradient[i] *= self.diff_to_weight(abs(mut[0]-i), increase = False)
+
+            self.mutation_log.append([mut[0], mut[1], mut[2], self.substitution_matrix[mut[1]][mut[2]], deltaE, accepted])
+
+            if accepted:
+                self.n_accepted_mutations += 1
+                self.mutation_score[mut[0]] = [mut[1], mut[2], deltaE]
+
+            if self.reverse_log:
+                print("result:  " + str(mut) + " | " + str(deltaE) + " | " + str(accepted))
+                if not accepted:
+                    self.mutation_score[mut[0]] = [None, None, 0]
+
+        for i in range(len(self.mutation_score)):
+            _mut = self.mutation_score[i]
+            self.gradient[i] += 0.2*abs(_mut[2])
+
+        self.gradient = np.clip([i+0.01*(1-i) for i in self.gradient], 1, 10)
+        self.current_mutations = []
+        self.reverse_log = False
+
 
     def fixup_MCMC(self, seq):
         """Dynamically adjust the metropolis beta parameter to improve performance."""
@@ -409,7 +631,7 @@ class MCMC_Optimizer(torch.nn.Module):
         else:
             self.beta = self.beta * self.coef
 
-        self.beta = np.clip(self.beta, 5, 1000)
+        self.beta = np.clip(self.beta, 5, 500)
 
         return seq
 
@@ -419,6 +641,8 @@ class MCMC_Optimizer(torch.nn.Module):
         # pylint: disable=too-many-locals
 
         start_time = time.time()
+        nntime = 0
+        losstime = 0
 
         # initialize with given input sequence
         print("Initial seq: ", start_seq)
@@ -434,75 +658,96 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_step = 0
         self.best_sequence = start_seq
         self.best_E = E
+        self.best_bkg = 0
+        self.best_mtf = 0
+        self.best_distogram_distribution = None
+        self.gradient = [1] * self.seq_L
+        self.good_mutations = [0] * self.seq_L
+        self.mutation_score = [[None,None,0]] * self.seq_L
+        self.reverse_log = False
+        self.current_mutations = []
+        self.mutation_log = []
 
         # Main loop:
         for self.step in range(self.N + 1):
-
             # random mutation at random position, also fix sequence constraint
             seq_curr = self.mutate(seq)
-
-            if self.step - self.best_step > min(self.N // 4,300) and self.beta > 100: seq_curr = self.mutate(seq_curr)  #double mutants if no improvement for a long time
-            if self.step - self.best_step > min(self.N // 4,750) and self.beta > 150: seq_curr = self.mutate(seq_curr)  #triple mutants if no improvement for a long time
 
             # Preprocess the sequence
             seq_curr = torch.from_numpy(seq_curr).long()
             model_input, msa1hot = prep_seq(seq_curr)
+
+            nn_start = time.time()
 
             # probe effect of mutation
             structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
                 model_input, use_n_models=cfg.n_models
             )
 
+            nntime += time.time() - nn_start
+
+            loss_start = time.time()
+
             E_curr, metrics = self.loss(
                 seq_curr, structure_predictions, msa1hot, track=True
             )
 
+            losstime += time.time() - loss_start
+
+            if E_curr < self.best_E:
+                self.best_bkg = metrics["background_loss"].cpu().detach().numpy()
+                self.best_mtf = metrics["motif_loss"].cpu().detach().numpy()
+                self.best_site = metrics["site_loss"].cpu().detach().numpy()
+                self.best_distogram_distribution = (structure_predictions['dist'].detach().cpu().numpy())
+
             seq, E = self.metropolis(seq, seq_curr, E_curr, E)
             E_tracker.append(v(E))
+            delta_step_best = self.step - self.best_step
+            self.site_weight = self.step * 0.0001
 
-            if self.step % nsave == 0:
+            if self.step % nsave == 0 or (cfg.TRACE and self.step % 10 == 0):
                 fps = self.step / (time.time() - start_time)
                 background_loss = metrics["background_loss"].cpu().detach().numpy()
+                mtf_loss = metrics["motif_loss"].cpu().detach().numpy()
+                site_loss = metrics["site_loss"].cpu().detach().numpy()
 
                 print(
-                    f"Step {self.step:4d} / {self.N:4d} "
-                    f"Loss: {E:.2f}, "
-                    f"Bkg-KL: {background_loss:.2f} || "
-                    f"beta: {self.beta}, "
+                    f"Step {self.step:4d} / {self.N:4d} ({delta_step_best}) || "
+                    f"beta: {self.beta:.1f}, "
                     f"mutations/s: {fps:.2f}, "
                     f"bad/good_accepts: {np.sum(self.bad_accepts[-100:])}/{np.sum(self.good_accepts[-100:])}",
                     flush=True,
                 )
-                print(f"Motif Loss: " + str(metrics["motif_loss"].cpu().detach().numpy()))
-                print("Steps since best: " + str(self.step - self.best_step))
+                print(f"STATS      || loss: {E_curr:.3f}, bkg: {background_loss:.3f}, mtf: {mtf_loss:.3f}, site: {site_loss:.3f}")
+                print(f"BEST STATS || loss: {self.best_E:.3f}, bkg: {self.best_bkg:.3f}, mtf: {self.best_mtf:.3f}, site: {self.best_site:.3f}")
+                print(f"total time: {(time.time() - start_time):.2f}")
+                print(f"nn time:    {nntime:.2f}")
+                print(f"loss time:  {losstime:.2f}")
 
-                if self.step % (nsave * 2) == 0:
-                    #distogram_distribution = (
-                    #    structure_predictions['dist'].detach().cpu().numpy()
-                    #)
-                    #distogram = distogram_distribution_to_distogram(
-                    #    distogram_distribution
-                    #)
-                    #plot_distogram(
-                    #    distogram,
-                    #    self.results_dir
-                    #    / "distogram_evolution"
-                    #    / f"{self.step:06d}_{E_curr:.4f}.jpg",
-                    #    clim=cfg.limits["dist"],
-                    #)
+                plot_muts(self.gradient, self.results_dir / "gradient.jpg")
+                plot_muts(self.good_mutations, self.results_dir / "mutations.jpg")
+
+                if self.step % (nsave * 2) == 0 or (cfg.TRACE and self.step % 10 == 0):
+
+                    distogram = distogram_distribution_to_distogram(
+                       self.best_distogram_distribution
+                    )
+                    plot_distogram(
+                       distogram,
+                       self.results_dir
+                       / "distogram_evolution"
+                       / f"{self.step:06d}_{self.best_E:.4f}.jpg",
+                       clim=cfg.limits["dist"],
+                    )
+
                     plot_progress(
                         E_tracker,
                         self.results_dir / "progress.jpg",
                         title=f"Optimization curve after {self.step} steps",
                     )
                     print(f"\n--- Current best: {self.best_sequence}")
-                    print(f"--- Structure prediction models: {cfg.n_models}\n")
 
-            if self.step % self.M == 0 and self.step != 0:
-                seq = self.fixup_MCMC(seq)
-
-
-            if (1 + self.step) % 10 == 0:
+            if (1 + self.step) % 11 == 0:
                 with open('control.txt', 'r') as reader:
                     lines = reader.readlines()
                     line = lines[0].strip()
@@ -539,15 +784,15 @@ class MCMC_Optimizer(torch.nn.Module):
                             print("pause...")
                             time.sleep(30)
 
-            if self.step > 2000 and self.step % 100 == 0:
+            if (delta_step_best > 300 and self.step > 1500 and self.step % 97 == 0) or (cfg.FAST and self.step > 499 and self.step % 50 == 0):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
-                print("std: " + str(std))
-                if abs(std) < 0.01:
+                print("sd: " + str(std))
+                if abs(std) < 0.015 or (cfg.FAST and abs(std) < 0.05):
                     break
 
-
-
+            if self.step % self.M == 0 and self.step != 0:
+                seq = self.fixup_MCMC(seq)
 
         ########################################
 
@@ -568,7 +813,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_metrics["motifweight"] = self.motif_weight
         self.best_metrics["motifmode"] = self.motifmode
         self.best_metrics["steps"] = self.step
-        self.best_metrics["motifs"] = str(self.motifs.copy())
+        self.best_metrics["motifs"] = "\"" + str(self.motifs.copy()) + "\""
 
         # Dump distogram:
         best_distogram_distribution = structure_predictions['dist'].detach().cpu().numpy()
@@ -588,5 +833,10 @@ class MCMC_Optimizer(torch.nn.Module):
         with (self.results_dir / "result.csv").open("w") as f:
             for key, val in self.best_metrics.items():
                 f.write(f"{key},{val}\n")
+
+        with (self.results_dir / "mutation_log.csv").open("w") as f:
+            for mut in self.mutation_log:
+                f.write(f"{mut}\n")
+
 
         return self.best_metrics
