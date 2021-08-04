@@ -18,6 +18,8 @@ import random
 # pkg
 import config as cfg
 
+
+
 def d(tensor=None, force_cpu=cfg.FORCECPU):
     """Return 'cpu' or 'cuda' depending on context. Is used to set tensor calculation device"""
     if force_cpu:
@@ -25,7 +27,6 @@ def d(tensor=None, force_cpu=cfg.FORCECPU):
     if tensor is None:
         return "cuda" if torch.cuda.is_available() else "cpu"
     return "cuda" if tensor.is_cuda else "cpu"
-
 
 def distance_to_bin_id(angstrom_distance: float):
     """Return the `bin_id` for a distance from a structure prediction."""
@@ -164,7 +165,7 @@ def seqfrommotifs(motifs,sequence, bkgseq):
         for m in motifs[:]:
             if pos >= m[5] and pos <= m[6]:
                 mpos = pos - m[5]
-                if m[3][mpos] == 'b' or m[3][mpos] == 's':
+                if m[3][mpos] in cfg.structure_restraint_letters:
                     templatepos = m[0] + mpos
                     use_bkg = False
                     newseq += sequence[templatepos]
