@@ -107,11 +107,14 @@ def main():
         cfg.sequence_constraint = cfg.best_seq
         cfg.motif_placement_mode = -2
         cfg.LEN = len(cfg.best_seq)
-        cfg.MCMC["BETA_START"] = 100
+        cfg.MCMC["BETA_START"] = 200
     elif cfg.use_predef_motif:
         print("Using predefiend motifs")
         motifs = cfg.motifs
         cfg.motif_placement_mode = -3
+
+    if mlen > 256:
+        cfg.BACKGROUND = False
 
 
     seqs, seq_metrics = [], []
@@ -132,13 +135,13 @@ def main():
             cfg.motif_placement_mode = np.random.randint(0,6)
 
         if i > 0:
-            cfg.seq_from_template = random.choice([True, False])
+            cfg.TEMPLATE = random.choice([True, False])
             cfg.GRADIENT = random.choice([True, False])
-            cfg.MATRIX = random.choice([True, False])
+            #cfg.MATRIX = random.choice([True, False])
 
         print("GRADIENT: " + str(cfg.GRADIENT))
         print("MATRIX: " + str(cfg.MATRIX))
-        print("TEMPLATE: " + str(cfg.seq_from_template))
+        print("TEMPLATE: " + str(cfg.TEMPLATE))
 
         mtf_weight = cfg.motif_weight_max
         if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
@@ -163,11 +166,13 @@ def main():
 
         if cfg.use_predef_start:
             start_seq = cfg.best_seq
-        elif cfg.seq_from_template:
+        elif cfg.TEMPLATE:
             start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
 
-        with autocast():
-            metrics = mcmc_optim.run(start_seq)
+        if cfg.first_residue_met:
+            start_seq = "M" + start_seq[1:]
+
+        metrics = mcmc_optim.run(start_seq)
 
 
         metrics["GRADIENT"] = str(cfg.GRADIENT)
