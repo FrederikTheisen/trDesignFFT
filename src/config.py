@@ -8,16 +8,23 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 256  # sequence length
-AA_WEIGHT = 0  # weight for the AA composition biasing loss term
+LEN = 290  # sequence length
+AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
-FORCECPU = False
-TRACE = False
+
+TEMPLATE = True
 GRADIENT = True
-FAST = False #lower threshold for simulation end parameters
 MATRIX = True
+MATRIX_MODE = 'probability'
+MATRIXFILE = 'blosum62.txt'
+
+BACKGROUND = (BKG_WEIGHT > 0)
+
+FORCECPU = False
+FAST = False #lower threshold for simulation end parameters
+TRACE = False
 
 if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
     n_models = 1
@@ -25,9 +32,10 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 # MCMC schedule:
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
-MCMC["N_STEPS"] = 6000  # Number of steps for each MCMC optimization
+MCMC["N_STEPS"] = 8000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25  # Divide BETA by COEF
 MCMC["M"] = MCMC["N_STEPS"] // 200  # Adjust beta every M steps
+MCMC["MAX"] = 2000
 
 num_simulations = 100  # Number of sequences to design
 
@@ -44,30 +52,36 @@ use_sites = False
 motif_placement_mode = 2.2 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
-motif_weight_max = 2 #min weight is 1
-seq_from_template = True #take initial sequence from motif template
+motif_weight_max = 1 #min weight is 1
+first_residue_met = True
 
 # keep certain positions at specific residues (e.g., "---A---C---")
 sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
 FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
-motif_constraint = '''-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrrrrrrrrgrgrgm------rrrrrrrrrrrrrrrrrrrrrrgrgrrrrrrggrrmrrr----------rrrrrrrrrrrrrrrrrrrmrmrrgrrrrrrrrr--------------rgggmrrrrrrrrrrrr----rrrrrrrrrr-----rrrgrmgrrgrgrrrrrrrrrrrrrrrrrrrrrrrrrmgrr------rrrggrrrrrggrr-------rrrrrrr--------------------------rrrrrrrggrrrrrrrrrrrr--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+motif_constraint = '''-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrrrrrrrcgcgcgcrrrrrrrrrrrrrrrrrrrrrrrrrrrcgcgcrrrrcggccmcrrrrrrrrrrrrrrrrrrrrrrrrrrrrcccmcmrrgrrrrrrrrrrrrrrrrrrrrrrrcgggcccccrrlrrrrrrrrrrrrrrrrrrrrrrrrrrcgcmgrrgrgrrlrrrrrrrrrrrrrrrrrrrcccmgrrrrrrrrrgcggrrcrcgrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrcggcrrrrrrrrrrrrrrrrrrr------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------'''.replace('\n','')
-motif_position =   '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------1111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111----------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111------------------1111111111111111111111111111111-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+motif_position =   '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------'''.replace('\n','')
 
 #predefined start parameters
 use_predef_motif = False
-motifs = [[281, 387, 107, '--sssssssssssssssssssssssssssssssssssssssssssssssssssbssssssbbsssssssssssssssssssssssssssssssssssbsssssss--', 1, 0, 106],
-[403, 504, 102, '--sssbsbsssssssssssssssssssssssssssssssssssbsbbssbsbsssssssssssssssssssssssssbssssssssssssbssssssbs---', 1, 109, 210],
-[542, 578, 37, '---ssssssbbssssssssssssssssssssssss--', 1, 219, 255]]
+motifs = [[287, 353, 67, '-rrrrrrrrrrrrgrgrgr------rrrrrrrrrrrrrrrrrrrrrrgrgrrrrrrggrrmrrr---', 1, 0, 66],
+[358, 393, 36, '---rrrrrrrrrrrrrrrrrrrmrmrrgrr------', 1, 69, 104],
+[405, 517, 113, '----rgggr------rrrrrrrrrrrrrrrrrrrrrrrrrrgrgrmgrrgrgrrrrrrrrrrrrrrrrrrrrgggrgmgrrrrrrrrrgrggrrrrrgrrrrrrr--------', 1, 106, 218],
+[539, 569, 31, '-------rgrgrrrggrrrrrrrrrrrr---', 1, 225, 255]]
+
 
 use_predef_start = False
-best_seq = "EMSVMFGHIAPLAINVVVLHDTGGKGRYDADTASEMLKAIAKDSPDVPVHVHGKHMGGSGHDGAGHAGAGTAKATKSASDIKQLKKEAGRLNVFLIFHVHFGPRKDDKREDGDGWPWSGGKPSRDRKKFEEDDMKEAAAEAAEHLGNNGDAIYYDVWHNDQRDGNNKEDKRKLAKAMAAADVAVFIEDHGTAEPAAGVVHHESMGSYPASLILALVDGVNIFIIMFANWQKPTALELIAELLSELAQEVEEAIIEL"
+best_seq = "MSIPLLDDVEIYLIAMPFGNHGIRVGERLESPIKQFQKRKHGVQTYVLVKTNTIGGHDSGHMNTDQAESIFEEGMKKTALKAEDLGVHLFFHVNTAETTNPNTPEAYERENWNWNTRPDYEQYSNLPERRPEAKYEKFMKRLGKGFIFPYMDVFNNHQSYADKAKLPEQLQYHAAKKGWRFMIEWGSIAPPDLVFPHGWNMFTYHGDDKIAQRSQLVDAIAKEGLRVRVIIGQMVDIFGWQWAGTTEEAVRQMLRW"
 
 varlen = ""
 if use_random_length: varlen = "var"
+varstart = ""
+if use_predef_motif: varstart = "pm"
+if use_predef_start: varstart += "ps"
 experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa_{MCMC['N_STEPS']}steps"
 
+if use_predef_motif or use_predef_start: experiment_name += "_" + varstart
 
 ### Constants  ###
 
@@ -132,6 +146,6 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
                         0.089042, 0.084882, 0.031276, 0.035995, 0.038211,
                         0.060108, 0.053137, 0.008422, 0.026804, 0.071172])
 # fmt: on
-sequence_restraint_letters = "gym"
-structure_restraint_letters = "rgm"
-structure_restraint_mask_values = { "r" : 1, "g" : 3, "m" : 5 }
+sequence_restraint_letters = "gyml"
+structure_restraint_letters = "rgmcl"
+structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 8 , "c" : 3, "l" : 2 }
