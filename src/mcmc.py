@@ -6,6 +6,7 @@ import time
 
 # lib
 import numpy as np
+from numpy.random import choice
 import torch
 from torch.cuda.amp import autocast
 import math
@@ -67,7 +68,7 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                     if i >= m[5] and i <= m[6]:
                         mi = i - m[5] #local index
                         c = m[3][mi]  #con type
-                        if c in cfg.structure_restraint_letters:
+                        if c in cfg.sequence_restraint_letters:
                             restraint = sequence[i]
                         continue
 
@@ -162,6 +163,9 @@ def placemotifs(motifs, seq_L, sequence, mode = 0):
                         constrain_seq = True
                     continue
 
+            if i == 0 and cfg.first_residue_met:
+                restraint = "M"
+
             seq_con = seq_con + restraint
 
     if not constrain_seq:
@@ -189,7 +193,7 @@ def createmask(motifs, seq_L, save_dir, is_site_mask = False):
                         if c2 in cfg.structure_restraint_letters:
                             v1 = cfg.structure_restraint_mask_values[c1]
                             v2 = cfg.structure_restraint_mask_values[c2]
-                            value = v1*v2
+                            value = np.clip(v1*v2, 1, 100)
                             motif_mask[i,j] = value
                             motif_mask_g[i,j] = value**0.5
 
@@ -259,11 +263,12 @@ class MCMC_Optimizer(torch.nn.Module):
         print(sequence_constraint)
 
         # Setup MCMC params:
-        self.beta, self.N, self.coef, self.M = (
+        self.beta, self.N, self.coef, self.M, self.MaxM = (
             MCMC["BETA_START"],
             MCMC["N_STEPS"],
             MCMC["COEF"],
             MCMC["M"],
+            MCMC["MAX"],
         )
         self.aa_weight = aa_weight
 
@@ -302,25 +307,45 @@ class MCMC_Optimizer(torch.nn.Module):
 
     def matrix_setup(self):
         self.substitution_matrix = {}
-        with open("src/matrix.txt") as reader:
-            columns = reader.readline().strip().split()[:-4]
+        with open("src/" + cfg.MATRIXFILE) as reader:
+            columns = reader.readline().strip().split()
             lines = reader.readlines()
-            for aa in columns[:-4]:
+            for aa in columns:
                 if aa in cfg.RM_AA: continue
+                if aa not in cfg.ALPHABET_core_str: continue
                 self.substitution_matrix[aa] = {}
 
 
-            for line in lines[:-4]:
+            for line in lines:
                 data = line.strip().split()
                 aa1 = data[0]
+                if aa1 not in cfg.ALPHABET_core_str: continue
                 sub = {}
                 for i in range(0,len(columns)):
                     aa2 = columns[i]
                     if aa2 in cfg.RM_AA: continue
+                    if aa2 not in cfg.ALPHABET_core_str: continue
                     value = data[i+1]
-                    sub[aa2] = float(value)
+                    try: sub[aa2] = float(value)
+                    except: sub[aa2] = 0
 
                 self.substitution_matrix[aa1] = dict(sorted(sub.items(), key=lambda x: x[1]))
+
+        if cfg.MATRIX_MODE == 'probability': #convert to non negative values
+            min_value = 1
+
+            for a in self.substitution_matrix.items():
+                for b in a[1].items():
+                    if b[1] < min_value: min_value = b[1]
+
+            if min_value < 0:
+                offset = -min_value + 1
+
+                for a in self.substitution_matrix.items():
+                    for b in a[1].items():
+                        self.substitution_matrix[a[0]][b[0]] += offset
+
+
 
     def setup_results_dir(self, experiment_name):
         """Create the directories for the results."""
@@ -338,7 +363,7 @@ class MCMC_Optimizer(torch.nn.Module):
         """Prepare the loss functions."""
 
         # Initialize protein background distributions:
-        self.bkg_loss = Structural_Background_Loss(self.seq_L, self.bkg_dir)
+        if cfg.BACKGROUND: self.bkg_loss = Structural_Background_Loss(self.seq_L, self.bkg_dir)
         self.aa_bkgr_distribution = torch.from_numpy(self.native_frequencies).to(d())
 
         # Motif-Loss:
@@ -384,9 +409,12 @@ class MCMC_Optimizer(torch.nn.Module):
         TM_score_proxy = TM_score_proxy[0]  # We're running with batch_size = 1
 
         # Background KL-loss:
-        background_loss = self.bkg_loss(
-            structure_predictions, hallucination_mask=self.hallucination_mask
-        )
+        if cfg.BACKGROUND:
+            background_loss = self.bkg_loss(
+                structure_predictions, hallucination_mask=self.hallucination_mask
+            )
+        else:
+            background_loss = torch.tensor(0)
 
         # aa composition loss
         aa_samp = (
@@ -461,74 +489,72 @@ class MCMC_Optimizer(torch.nn.Module):
         seq_curr = np.copy(seq)
 
         # Introduce a random mutation using the allowed aa_types:
-        idx = np.random.randint(self.seq_L)
-
-        if cfg.GRADIENT:
-            _min = min(self.gradient)-1
-            _max = max(self.gradient)
-            _val = self.gradient[idx]
-
-            while _val < np.random.uniform(0, _max):
-                idx = np.random.randint(self.seq_L)
-                _val = self.gradient[idx]
+        if cfg.GRADIENT: idx = random.choices(range(self.seq_L), self.gradient, k=1)[0]
+        else: idx = np.random.randint(self.seq_L)
 
         from_aa = idx2aa(seq_curr[0])[idx]
 
         #Perform mutation
         if cfg.MATRIX and self.mutation_score[idx][0] is not None:
-
+            mut = self.mutation_score[idx]
+            mut_score = mut[2]
             mins = min(self.mutation_score, key=lambda x: x[2])[2]
             maxs = max(self.mutation_score, key=lambda x: x[2])[2]
 
-            if mins == maxs:
-                seq_curr[0, idx] = np.random.choice(self.aa_valid)
-            else:
-                mut = self.mutation_score[idx]
-                mut_score = mut[2]
-                options = []
-                substitution_vector = self.substitution_matrix[mut[1]]
-                sub_score = self.substitution_matrix[mut[0]][mut[1]]
-
-                if mut_score < 0: #good
-                    if sub_score < -1: options = self.select_mutation_options(substitution_vector, -1, True)
-                    else: options = self.select_mutation_options(substitution_vector, -2, True)
-                elif mut_score > 0.8 * maxs: #very bad
-                    #options = self.select_mutation_options(substitution_vector, 0, False)
-                    #options.append(mut[0])
-                    options.append(mut[0])
-                    print("very bad: " + str(idx) + " " + str(mut))
+            if cfg.MATRIX_MODE == 'probability':
+                if mut_score > 0.66 * maxs:
+                    print("##Revert: " + str(idx) + " " + str(mut))
                     self.reverse_log = True
-                else: #bad
-                    if sub_score < -1: options = self.select_mutation_options(substitution_vector, -1, True)
-                    else: options = self.select_mutation_options(substitution_vector, -1, False)
+                    seq_curr[0, idx] = aa2idx(mut[0])
+                else:
+                    if mut_score > 0.33 * maxs:
+                        p = 0
+                        print("Bad mut:  " + str(idx) + " " + str(mut))
+                        self.reverse_log = True
+                    else: p = 1
 
-                seq_curr[0, idx] = aa2idx(np.random.choice(options))
+                    list_of_candidates = [k for k,v in self.substitution_matrix[mut[p]].items()]
+                    probability_distribution = [v for k,v in self.substitution_matrix[mut[p]].items()]
+                    mutation = random.choices(list_of_candidates, probability_distribution, k=1)
+                    seq_curr[0, idx] = aa2idx(mutation)
+            elif cfg.MATRIX_MODE == 'groups':
+                seq_curr[0, idx] = np.random.choice(self.aa_valid)
+            elif cfg.MATRIX_MODE == 'substitution':
+                if mins == maxs:
+                    seq_curr[0, idx] = np.random.choice(self.aa_valid)
+                else:
+                    options = []
+                    substitution_vector = self.substitution_matrix[mut[1]]
+                    sub_score = self.substitution_matrix[mut[0]][mut[1]]
 
-                # if mut_score > maxs/2: #very bad
-                #     if sub_score > 0: #similar residue but very bad, revert mutation
-                #         options = [mut[0]]
-                #         print("revert: " + str(mut))
-                #     else: #try something different
-                #         options = self.select_mutation_options(substitution_vector, -2, False)
-                # elif mut_score > maxs/4: #bad
-                #     if sub_score > 1: #previous mutation not supposed to result in large effect, try something similar again
-                #         options = self.select_mutation_options(substitution_vector, -1, True)
-                #     elif sub_score < -2: #expected, try similar residue
-                #         options = self.select_mutation_options(substitution_vector, -2, True)
-                #     else: #try something different
-                #         options = self.select_mutation_options(substitution_vector, -1, False)
-                # elif mut_score > 0: #neutral/bad
-                #     if sub_score < -2: #better than expected, try something similar
-                #         options = self.select_mutation_options(substitution_vector, -1, True)
-                #     else: #try something not too similar
-                #         options = self.select_mutation_options(substitution_vector, -1, False)
-                # elif mut_score > mins/2: #good, try something not too different
-                #     options = self.select_mutation_options(substitution_vector, -2, True)
-                # else: #very good, try something similar
-                #     options = self.select_mutation_options(substitution_vector, -1, True)
-                #     print(mut, options)
+                    if mut_score < 0: #good
+                        options = self.select_mutation_options(substitution_vector, sub_score, True)
+                    elif mut_score > 0.8 * maxs: #very bad
+                        options.append(mut[0])
+                        print("very bad: " + str(idx) + " " + str(mut))
+                        self.reverse_log = True
+                    else: #bad
+                        options = self.select_mutation_options(self.substitution_matrix[mut[0]], sub_score, False)
 
+                    seq_curr[0, idx] = aa2idx(np.random.choice(options))
+            else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
+        elif self.mutation_score[idx][0] is not None:
+            mut = self.mutation_score[idx]
+            mut_score = mut[2]
+
+            maxs = max(self.mutation_score, key=lambda x: x[2])[2]
+
+            if mut_score > 0.66 * maxs:
+                print("##Revert: " + str(idx) + " " + str(mut))
+                self.reverse_log = True
+                seq_curr[0, idx] = aa2idx(mut[0])
+                seq_curr = self.mutate(seq_curr)
+            elif mut_score > 0.33 * maxs:
+                print("##Revert: " + str(idx) + " " + str(mut))
+                self.reverse_log = True
+                seq_curr[0, idx] = aa2idx(mut[0])
+            else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
         else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
         to_aa = idx2aa(seq_curr[0])[idx]
@@ -539,6 +565,7 @@ class MCMC_Optimizer(torch.nn.Module):
             )
 
         if np.equal(seq_curr, seq).all(): # If the mutation did not change anything, retry
+            if self.reverse_log: print(from_aa,to_aa)
             return self.mutate(seq)
 
         # Store mutation information
@@ -554,25 +581,9 @@ class MCMC_Optimizer(torch.nn.Module):
 
     def diff_to_weight(self, diff, increase = True):
         if increase:
-            if diff >= 10: return 1.06766764161831
-            if diff == 9: return 1.09894934954181
-            if diff == 8: return 1.1390186502266
-            if diff == 7: return 1.1876555494257
-            if diff == 6: return 1.24337612797999
-            if diff == 5: return 1.30326532985632
-            if diff == 4: return 1.36307451853685
-            if diff == 3: return 1.41763510570564
-            if diff == 2: return 1.46155817319332
-            if diff == 1: return 1.49009933665338
-            else: return 1.2
-        else:
-            if diff > 5: return 0.997778200692352
-            if diff == 5: return 0.991212613275319
-            if diff == 4: return 0.9672932943352677
-            if diff == 3: return 0.9383506950652833
-            if diff == 2: return 0.878693868057473
-            if diff == 1: return 0.823500619483081
-            else: return 0.8
+            if diff == 0: return 1.25
+            else: return 1.5 - 0.025*diff
+        else: return 0.8 + 0.02 * diff
 
     def register_mutation_fitness(self, accepted, deltaE):
         if deltaE < -1: deltaE = 0
@@ -585,13 +596,13 @@ class MCMC_Optimizer(torch.nn.Module):
 
             if good:
                 self.good_accepts.append(1)
-                for i in range(mut[0]-15,mut[0]+16):
-                    if i > 0 and i < self.seq_L - 1:
+                for i in range(mut[0]-20,mut[0]+21):
+                    if i >= 0 and i < self.seq_L:
                         self.gradient[i] *= self.diff_to_weight(abs(mut[0]-i))
             else:
                 self.good_accepts.append(0)
-                for i in range(mut[0]-8,mut[0]+9):
-                    if i > 0 and i < self.seq_L - 1:
+                for i in range(mut[0]-10,mut[0]+11):
+                    if i >= 0 and i < self.seq_L:
                         self.gradient[i] *= self.diff_to_weight(abs(mut[0]-i), increase = False)
 
             self.mutation_log.append([mut[0], mut[1], mut[2], self.substitution_matrix[mut[1]][mut[2]], deltaE, accepted])
@@ -605,11 +616,7 @@ class MCMC_Optimizer(torch.nn.Module):
                 if not accepted:
                     self.mutation_score[mut[0]] = [None, None, 0]
 
-        for i in range(len(self.mutation_score)):
-            _mut = self.mutation_score[i]
-            self.gradient[i] += 0.2*abs(_mut[2])
-
-        self.gradient = np.clip([i+0.01*(1-i) for i in self.gradient], 1, 10)
+        self.gradient = np.clip([i+0.01*(1-i) for i in self.gradient], 0.2, 20)
         self.current_mutations = []
         self.reverse_log = False
 
@@ -631,7 +638,7 @@ class MCMC_Optimizer(torch.nn.Module):
         else:
             self.beta = self.beta * self.coef
 
-        self.beta = np.clip(self.beta, 5, 500)
+        self.beta = np.clip(self.beta, 5, self.MaxM)
 
         return seq
 
@@ -754,6 +761,12 @@ class MCMC_Optimizer(torch.nn.Module):
                 if line == "exit" or line == "break":
                     print("ending due to command")
                     break
+                elif line == 'matrix':
+                    if lines[1] == 'n': cfg.MATRIX = False
+                    else: cfg.MATRIX = True
+                elif line == 'gradient':
+                    if lines[1] == 'n': cfg.GRADIENT = False
+                    else: cfg.GRADIENT = True
                 elif line == "beta":
                     try:
                         value = float(lines[1].strip())
@@ -788,7 +801,7 @@ class MCMC_Optimizer(torch.nn.Module):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))
-                if abs(std) < 0.015 or (cfg.FAST and abs(std) < 0.05):
+                if abs(std) < 0.01 or (cfg.FAST and abs(std) < 0.05):
                     break
 
             if self.step % self.M == 0 and self.step != 0:
