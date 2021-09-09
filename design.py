@@ -95,6 +95,78 @@ def main():
     else:
         motifs = None
 
+
+    ########################################################
+    # prepare property template
+    ########################################################
+
+    with open("msa_properties.txt") as reader:
+        lines = reader.readlines()
+        for line in lines:
+            if len(line) > 10 and line[0:9] == 'BAR_GRAPH':
+                data = line.split('\t')
+                datatype = data[1].strip()
+                if datatype == 'Conservation':
+                    annotations = data[3].split('|')
+                    cfg.TEMPLATE_AA_PROPERTIES = []
+                    #11.0,*,hydrophobic !aliphatic !aromatic !charged !negative !polar !positive !proline !small !tiny,[ffe600]
+                    for a in annotations[:-1]:
+                        dat = a.strip().split(',')
+                        p = []
+                        aas = cfg.ALPHABET_core_str
+
+                        if len(dat) == 4:
+                            for g in dat[2].strip().split(' '): p.append(g.strip())
+
+                            for g in p:
+                                removeiffound = False
+                                group = ""
+
+                                if g[0] == '!':
+                                    removeiffound = True
+                                    group = cfg.AA_PROPERTY_GROUPS[g[1:]]
+                                else: group = cfg.AA_PROPERTY_GROUPS[g]
+
+                                if removeiffound:
+                                    for c in group:
+                                        if c in aas: aas = aas.replace(c,'')
+                                else:
+                                    _aas = aas
+                                    for aa in _aas:
+                                        if aa not in group: aas = aas.replace(aa,'')
+                                if len(aas) == 0: aas = cfg.ALPHABET_core_str
+
+                        for aa in cfg.RM_AA:
+                            if aa in aas: aas = aas.replace(aa,'')
+                        props = []
+
+                        for aa in aas: props.append(aa)
+
+                        cfg.TEMPLATE_AA_PROPERTIES.append(props)
+                    print("TEMPLATE_AA_PROPERTIES LENGTH: " + str(len(cfg.TEMPLATE_AA_PROPERTIES)))
+                elif datatype == 'Consensus':
+                    cfg.TEMPLATE_AA_CONSENSUS = []
+                    cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES = []
+                    annotations = data[3].split('|')
+                    for a in annotations[:-1]:
+                        dat = a.strip().split(',')[2]
+                        aas = []
+                        p = []
+
+                        for g in dat.split(';'):
+                            prob = float(g.strip().split(' ')[1][0:-1])
+                            if prob > 20:
+                                aas.append(g.strip()[0])
+                                p.append(float(g.strip().split(' ')[1][0:-1]))
+                            elif len(aas) == 0:
+                                aas.append(g.strip()[0])
+                                p.append(float(g.strip().split(' ')[1][0:-1]))
+
+                        cfg.TEMPLATE_AA_CONSENSUS.append(aas)
+                        cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES.append(p)
+
+                    print("TEMPLATE_AA_CONSENSUS LENGTH:  " + str(len(cfg.TEMPLATE_AA_CONSENSUS)))
+
     ########################################################
     # run MCMC
     ########################################################
@@ -113,6 +185,7 @@ def main():
         motifs = cfg.motifs
         cfg.motif_placement_mode = -3
 
+
     if mlen > 256:
         cfg.BACKGROUND = False
 
@@ -124,7 +197,7 @@ def main():
 
         with open('control.txt', 'r') as reader:
             line = reader.readlines()[0].strip()
-            if i > 0 and line == "exit":
+            if i > 0 and (line == "exit" or line == 'end'):
                 print("Exiting due to command")
                 break
 
@@ -134,17 +207,26 @@ def main():
         if use_random_motif_mode:
             cfg.motif_placement_mode = np.random.randint(0,6)
 
-        if i > 0:
-            cfg.TEMPLATE = random.choice([True, False])
-            cfg.GRADIENT = random.choice([True, False])
-            #cfg.MATRIX = random.choice([True, False])
-
-        print("GRADIENT: " + str(cfg.GRADIENT))
-        print("MATRIX: " + str(cfg.MATRIX))
-        print("TEMPLATE: " + str(cfg.TEMPLATE))
+        #if i > 0:
+            #cfg.TEMPLATE = random.choice([True, False])
+            #cfg.TEMPLATE_MODE = random.choice(['msa','predefined','motifs'])
+            #cfg.GRADIENT = random.choice([True, False])
+            #cfg.MATRIX = random.choice([True, True, False])
+            #cfg.MATRIX_MODE = random.choice(['msa','probability'])
 
         mtf_weight = cfg.motif_weight_max
         if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
+
+        print("MOTIFS:   " + str(cfg.use_motifs))
+        print("  MODE:   " + cfg.motif_placement_mode_dict[cfg.motif_placement_mode])
+        print("  MOTIFS: " + str(len(motifs)))
+        print("  WEIGHT: " + str(mtf_weight))
+        print("GRADIENT: " + str(cfg.GRADIENT))
+        print("MATRIX:   " + str(cfg.MATRIX))
+        print("  MODE:   " + str(cfg.MATRIX_MODE))
+        print("  FILE:   " + str(cfg.MATRIXFILE))
+        print("TEMPLATE: " + str(cfg.TEMPLATE))
+        print("  MODE:   " + str(cfg.TEMPLATE_MODE))
 
         mcmc_optim = mcmc.MCMC_Optimizer(
             cfg.LEN,
@@ -167,7 +249,17 @@ def main():
         if cfg.use_predef_start:
             start_seq = cfg.best_seq
         elif cfg.TEMPLATE:
-            start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
+            if cfg.TEMPLATE_MODE == 'msa':
+                consensus_sequence = ""
+                for i in range(cfg.LEN):
+                    aa = random.choices(cfg.TEMPLATE_AA_CONSENSUS[i], cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES[i], k=1)[0]
+                    consensus_sequence += aa
+                start_seq = consensus_sequence
+            elif cfg.TEMPLATE_MODE == 'predefined':
+                start_seq = cfg.best_seq
+            else:
+                start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
+
 
         if cfg.first_residue_met:
             start_seq = "M" + start_seq[1:]
@@ -176,8 +268,10 @@ def main():
 
 
         metrics["GRADIENT"] = str(cfg.GRADIENT)
-        metrics["TEMPLATE"] = str(cfg.seq_from_template)
+        metrics["TEMPLATE"] = str(cfg.TEMPLATE)
+        metrics["TEMPLATE_MODE"] = str(cfg.TEMPLATE_MODE)
         metrics["MATRIX"] = str(cfg.MATRIX)
+        metrics["MATRIX_MODE"] = str(cfg.MATRIX_MODE)
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
