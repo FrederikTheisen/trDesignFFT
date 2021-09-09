@@ -8,36 +8,38 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 290  # sequence length
+LEN = 256  # sequence length
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
+report_interval = 60 #seconds
 
 TEMPLATE = True
+TEMPLATE_MODE = 'msa' #msa, motifs, predefined
 GRADIENT = True
 MATRIX = True
-MATRIX_MODE = 'probability'
-MATRIXFILE = 'blosum62.txt'
+MATRIX_MODE = 'msa' #probability, msa, groups
+MATRIXFILE = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 
 BACKGROUND = (BKG_WEIGHT > 0)
 
 FORCECPU = False
 FAST = False #lower threshold for simulation end parameters
-TRACE = False
+TRACE = False #dump sequence + distogram at each improvement
 
 if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
     n_models = 1
 
 # MCMC schedule:
 MCMC = {}
-MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
-MCMC["N_STEPS"] = 8000  # Number of steps for each MCMC optimization
-MCMC["COEF"] = 1.25  # Divide BETA by COEF
-MCMC["M"] = MCMC["N_STEPS"] // 200  # Adjust beta every M steps
-MCMC["MAX"] = 2000
+MCMC["BETA_START"] = 100  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
+MCMC["N_STEPS"] = 20000  # Number of steps for each MCMC optimization
+MCMC["COEF"] = 1.15 #1.25  # Divide BETA by COEF
+MCMC["M"] = MCMC["N_STEPS"] // 500  # Adjust beta every M steps
+MCMC["MAX"] = 5000
 
-num_simulations = 100  # Number of sequences to design
+num_simulations = 200  # Number of sequences to design
 
 # seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
 seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
@@ -56,12 +58,23 @@ motif_weight_max = 1 #min weight is 1
 first_residue_met = True
 
 # keep certain positions at specific residues (e.g., "---A---C---")
+#290 residue motif
 sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
 FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
 motif_constraint = '''-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrrrrrrrcgcgcgcrrrrrrrrrrrrrrrrrrrrrrrrrrrcgcgcrrrrcggccmcrrrrrrrrrrrrrrrrrrrrrrrrrrrrcccmcmrrgrrrrrrrrrrrrrrrrrrrrrrrcgggcccccrrlrrrrrrrrrrrrrrrrrrrrrrrrrrcgcmgrrgrgrrlrrrrrrrrrrrrrrrrrrrcccmgrrrrrrrrrgcggrrcrcgrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrcggcrrrrrrrrrrrrrrrrrrr------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------'''.replace('\n','')
 motif_position =   '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+
+#256 residue motif
+sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
+FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
+motif_constraint = '''-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrrrrrccggcgcgc------rrrrrrrrrrrrrrrrrrrcccggggrrrrcggccmcrr----------rrrrrrrrrrrrrrcccggmgmgggcrrrrrr----------------cmgmcgcccr-----------rrrrrrrrrr-----rccgcmggggcgrrrrrrrrrrrrrrrrrrrrrccccmgrr------rgcggccgccgccc----------------------------------------rrccccgmggcrrrrrrrrrr--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+motif_position =   '''----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111----------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-----------------111111111111111111111111111111------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+
+
 
 #predefined start parameters
 use_predef_motif = False
@@ -70,16 +83,17 @@ motifs = [[287, 353, 67, '-rrrrrrrrrrrrgrgrgr------rrrrrrrrrrrrrrrrrrrrrrgrgrrrr
 [405, 517, 113, '----rgggr------rrrrrrrrrrrrrrrrrrrrrrrrrrgrgrmgrrgrgrrrrrrrrrrrrrrrrrrrrgggrgmgrrrrrrrrrgrggrrrrrgrrrrrrr--------', 1, 106, 218],
 [539, 569, 31, '-------rgrgrrrggrrrrrrrrrrrr---', 1, 225, 255]]
 
-
 use_predef_start = False
-best_seq = "MSIPLLDDVEIYLIAMPFGNHGIRVGERLESPIKQFQKRKHGVQTYVLVKTNTIGGHDSGHMNTDQAESIFEEGMKKTALKAEDLGVHLFFHVNTAETTNPNTPEAYERENWNWNTRPDYEQYSNLPERRPEAKYEKFMKRLGKGFIFPYMDVFNNHQSYADKAKLPEQLQYHAAKKGWRFMIEWGSIAPPDLVFPHGWNMFTYHGDDKIAQRSQLVDAIAKEGLRVRVIIGQMVDIFGWQWAGTTEEAVRQMLRW"
+
+#290 residue start seq best_seq = "MFFRIPKVDITVGLIIMPFSRDRALPLENAEEVAEALKKKHGNIPLGILVKSFGGVGHDMFHFGAAKDLKQLKAVPQIKQIAKQYKVAGVTVMYHFNIFEMAPHSKYTSREEYKKDPGEERESHWNWGQPYRPVDLEEYAERKPEKRFEELLEQFGTGVTMIYHDVFGNYQFPDYSPKVMKKRLRAARKPGIWVMTEWSSFLRDGIRFIHWHTFDTYISNEVTLRKDKEEKQNGRDVLISGERLDPGNDKEDQETGRIRITAVGIGGWQPLLTLPQLKKLMKSAVKSVEL"
+best_seq = "MKPYRYDRTVIVSFIIMPFDFYKMDEEELTERLEQFLKKAKIKHRIIFLVKSIFGGYHDPFHMSEEYAENPEKREEMVERSIKLKKRLDIHFVWHYNVGEPMDRQGTPEQRQKHWNWTPKMDKKEYMARYQKRMIRRLRKLNLKELEVKVMWYHDVYYNEQSKNSKKVFKEMQQQGLQVKKIHAYYEWSPLRQSGLMFVHWWHMSSYAPDQRDGIQVVHFIGTSFGEWAREAGVWYVLGGWQGFLVRAEELEKLLP"
 
 varlen = ""
 if use_random_length: varlen = "var"
 varstart = ""
 if use_predef_motif: varstart = "pm"
 if use_predef_start: varstart += "ps"
-experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa_{MCMC['N_STEPS']}steps"
+experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
 
 if use_predef_motif or use_predef_start: experiment_name += "_" + varstart
 
@@ -127,6 +141,18 @@ MAX_AA_INDEX = len(ALPHABET_full_str) - 1
 ALPHABET_core = np.array(list(ALPHABET_core_str), dtype="|S1").view(np.uint8)  # no "-"
 ALPHABET_full = np.array(list(ALPHABET_full_str), dtype="|S1").view(np.uint8)
 
+AA_PROPERTY_GROUPS = {
+    'hydrophobic' : 'ILVCAGMFYWHKT',
+    'polar' : 'YWHKREQDNST',
+    'small' : 'VCAGDNSTP',
+    'proline' : 'P',
+    'tiny' : 'AGS',
+    'aliphatic' : 'ILV',
+    'aromatic' : 'FYWH',
+    'positive' : 'HKR',
+    'negative' : 'ED',
+    'charged' : 'HKRED'
+}
 
 ### Target Amino Acid Distribution ###
 
@@ -147,5 +173,7 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
                         0.060108, 0.053137, 0.008422, 0.026804, 0.071172])
 # fmt: on
 sequence_restraint_letters = "gyml"
-structure_restraint_letters = "rgmcl"
-structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 8 , "c" : 3, "l" : 2 }
+structure_restraint_letters = "rgmcl"#"rgmcl"
+structure_restraint_mask_values = { "r" : 1, "g" : 8, "m" : 16 , "c" : 5, "l" : 2 }#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+
+motif_placement_mode_dict = {0:'random placement',1:'dynamic',2:'input order', 2.1 : 'input order even spread', 2.2 :'input order, no end overhang', 3 : 'order by group', 4 : 'order by dist', 5 : 'order by C->N dist',  -1 : 'random mode'}
