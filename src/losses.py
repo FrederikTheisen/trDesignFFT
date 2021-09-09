@@ -225,19 +225,19 @@ class Motif_Satisfaction(torch.nn.Module):
         # - Compute the crossentropy and average over the entire LxL matrix
         # - Multiply with the mask
         motif_loss = 0
-        motif_loss_pos = to_tensor([0] * self.seq_L)
+        #motif_loss_pos = to_tensor([0] * self.seq_L)
 
         for key in self.keys:
             distribution = structure_distributions[key].squeeze()
             probs = torch.gather(distribution, 0, self.bin_indices[key])
             log_probs = torch.log(probs)
             #masked = (log_probs * self.mask)
-            motif_loss -= (log_probs * self.mask).mean()
+            motif_loss -= torch.mean(log_probs * self.mask) #.mean()
             #motif_loss_pos -= (log_probs * self.flatmask).mean(dim=[0,1])
 
         #motif_loss_pos = torch.clip(motif_loss_pos, motif_loss*0.5, motif_loss*2)
 
-        return motif_loss, motif_loss_pos
+        return motif_loss, 0
 
 
 class Site_Satisfaction(torch.nn.Module):
