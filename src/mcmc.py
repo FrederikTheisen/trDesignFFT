@@ -34,9 +34,6 @@ def motifsort(elem):
 def placemotifs(motifs, seq_L, sequence, mode = 0):
     """Randomly position discontinous motifs and check if valid. motif = [start, end, length, restraints, group, newstart, newend]"""
     print("Placing motifs...")
-    print("motifs: " + str(len(motifs)))
-    print("seq len: " + str(seq_L))
-    print("motif mode: " + str(mode))
     valid = False
     i = 0
     sum = 0
@@ -258,7 +255,6 @@ class MCMC_Optimizer(torch.nn.Module):
             self.motifs = _motifs
             if _seq_con is not None: sequence_constraint = _seq_con
 
-        print("motif weight: " + str(motif_weight))
         for m in self.motifs: print(m)
         print(sequence_constraint)
 
@@ -331,7 +327,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
                 self.substitution_matrix[aa1] = dict(sorted(sub.items(), key=lambda x: x[1]))
 
-        if cfg.MATRIX_MODE == 'probability': #convert to non negative values
+        if True: #convert to non negative values
             min_value = 1
 
             for a in self.substitution_matrix.items():
@@ -344,6 +340,10 @@ class MCMC_Optimizer(torch.nn.Module):
                 for a in self.substitution_matrix.items():
                     for b in a[1].items():
                         self.substitution_matrix[a[0]][b[0]] += offset
+
+                #for a in self.substitution_matrix.items():
+                #    for b in a[1].items():
+                #        self.substitution_matrix[a[0]][b[0]] = self.substitution_matrix[a[0]][b[0]]*self.substitution_matrix[a[0]][b[0]]
 
 
 
@@ -404,9 +404,9 @@ class MCMC_Optimizer(torch.nn.Module):
     def loss(self, sequence, structure_predictions, msa1hot, track=False):
         """Compute the loss function."""
 
-        # Top-prob:
-        TM_score_proxy = top_prob(structure_predictions['dist'], verbose=False)
-        TM_score_proxy = TM_score_proxy[0]  # We're running with batch_size = 1
+        # Top-prob: extremily expensive operation
+        #TM_score_proxy = top_prob(structure_predictions['dist'], verbose=False)
+        #TM_score_proxy = TM_score_proxy[0]  # We're running with batch_size = 1
 
         # Background KL-loss:
         if cfg.BACKGROUND:
@@ -451,7 +451,7 @@ class MCMC_Optimizer(torch.nn.Module):
             metrics["motif_loss"] = motif_loss
             metrics["site_loss"] = site_loss
             metrics["total_loss"] = loss_v
-            metrics["TM_score_proxy"] = TM_score_proxy
+            #metrics["TM_score_proxy"] = TM_score_proxy
 
         return loss_v, metrics
 
@@ -498,11 +498,12 @@ class MCMC_Optimizer(torch.nn.Module):
         if cfg.MATRIX and self.mutation_score[idx][0] is not None:
             mut = self.mutation_score[idx]
             mut_score = mut[2]
+            accepted = mut[3]
             mins = min(self.mutation_score, key=lambda x: x[2])[2]
             maxs = max(self.mutation_score, key=lambda x: x[2])[2]
 
             if cfg.MATRIX_MODE == 'probability':
-                if mut_score > 0.66 * maxs:
+                if mut_score > 0.66 * maxs and accepted:
                     print("##Revert: " + str(idx) + " " + str(mut))
                     self.reverse_log = True
                     seq_curr[0, idx] = aa2idx(mut[0])
@@ -511,6 +512,7 @@ class MCMC_Optimizer(torch.nn.Module):
                         p = 0
                         print("Bad mut:  " + str(idx) + " " + str(mut))
                         self.reverse_log = True
+                    elif mut_score > 0.1 * maxs: p = 0
                     else: p = 1
 
                     list_of_candidates = [k for k,v in self.substitution_matrix[mut[p]].items()]
@@ -518,25 +520,21 @@ class MCMC_Optimizer(torch.nn.Module):
                     mutation = random.choices(list_of_candidates, probability_distribution, k=1)
                     seq_curr[0, idx] = aa2idx(mutation)
             elif cfg.MATRIX_MODE == 'groups':
-                seq_curr[0, idx] = np.random.choice(self.aa_valid)
-            elif cfg.MATRIX_MODE == 'substitution':
-                if mins == maxs:
-                    seq_curr[0, idx] = np.random.choice(self.aa_valid)
-                else:
-                    options = []
-                    substitution_vector = self.substitution_matrix[mut[1]]
-                    sub_score = self.substitution_matrix[mut[0]][mut[1]]
+                ref = ""
+                if mut_score < 0: ref = mut[1]
+                else: ref = mut[0]
 
-                    if mut_score < 0: #good
-                        options = self.select_mutation_options(substitution_vector, sub_score, True)
-                    elif mut_score > 0.8 * maxs: #very bad
-                        options.append(mut[0])
-                        print("very bad: " + str(idx) + " " + str(mut))
-                        self.reverse_log = True
-                    else: #bad
-                        options = self.select_mutation_options(self.substitution_matrix[mut[0]], sub_score, False)
+                group = []
+                for k,v in cfg.AA_PROPERTY_GROUPS.items():
+                    if ref in v:
+                        for aa in v:
+                            if aa in cfg.RM_AA: continue
+                            group.append(aa)
 
-                    seq_curr[0, idx] = aa2idx(np.random.choice(options))
+                seq_curr[0, idx] = aa2idx(np.random.choice(group))
+            elif cfg.MATRIX_MODE == 'msa':
+                group = cfg.TEMPLATE_AA_PROPERTIES[idx]
+                seq_curr[0, idx] = aa2idx(np.random.choice(group))
             else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
         elif self.mutation_score[idx][0] is not None:
@@ -545,12 +543,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
             maxs = max(self.mutation_score, key=lambda x: x[2])[2]
 
-            if mut_score > 0.66 * maxs:
-                print("##Revert: " + str(idx) + " " + str(mut))
-                self.reverse_log = True
-                seq_curr[0, idx] = aa2idx(mut[0])
-                seq_curr = self.mutate(seq_curr)
-            elif mut_score > 0.33 * maxs:
+            if mut_score > 0.66 * maxs and mut[3]:
                 print("##Revert: " + str(idx) + " " + str(mut))
                 self.reverse_log = True
                 seq_curr[0, idx] = aa2idx(mut[0])
@@ -565,7 +558,7 @@ class MCMC_Optimizer(torch.nn.Module):
             )
 
         if np.equal(seq_curr, seq).all(): # If the mutation did not change anything, retry
-            if self.reverse_log: print(from_aa,to_aa)
+            self.reverse_log = False
             return self.mutate(seq)
 
         # Store mutation information
@@ -609,17 +602,15 @@ class MCMC_Optimizer(torch.nn.Module):
 
             if accepted:
                 self.n_accepted_mutations += 1
-                self.mutation_score[mut[0]] = [mut[1], mut[2], deltaE]
+
+            self.mutation_score[mut[0]] = [mut[1], mut[2], deltaE, accepted]
 
             if self.reverse_log:
-                print("result:  " + str(mut) + " | " + str(deltaE) + " | " + str(accepted))
-                if not accepted:
-                    self.mutation_score[mut[0]] = [None, None, 0]
+                print("result:  " + str(mut) + " " + str(deltaE) + " | " + str(accepted))
 
         self.gradient = np.clip([i+0.01*(1-i) for i in self.gradient], 0.2, 20)
         self.current_mutations = []
         self.reverse_log = False
-
 
     def fixup_MCMC(self, seq):
         """Dynamically adjust the metropolis beta parameter to improve performance."""
@@ -631,8 +622,9 @@ class MCMC_Optimizer(torch.nn.Module):
             seq = torch.from_numpy(
                 aa2idx(self.best_sequence).reshape([1, self.seq_L])
             ).long()
+            self.mutation_score = [[None,None,0,False]] * self.seq_L
 
-        elif np.mean(self.bad_accepts[-100:]) < 0.07:
+        elif np.mean(self.bad_accepts[-100:]) < 0.03:
             # There has been some progress recently, but we're no longer accepting any bad mutations...
             self.beta = self.beta / self.coef
         else:
@@ -648,8 +640,11 @@ class MCMC_Optimizer(torch.nn.Module):
         # pylint: disable=too-many-locals
 
         start_time = time.time()
+        muttime = 0
         nntime = 0
         losstime = 0
+        scoretime = 0
+        misctime = 0
 
         # initialize with given input sequence
         print("Initial seq: ", start_seq)
@@ -674,49 +669,70 @@ class MCMC_Optimizer(torch.nn.Module):
         self.reverse_log = False
         self.current_mutations = []
         self.mutation_log = []
+        self.last_update = time.time()
+        self.last_graph = time.time()
 
         # Main loop:
         for self.step in range(self.N + 1):
-            # random mutation at random position, also fix sequence constraint
-            seq_curr = self.mutate(seq)
 
-            # Preprocess the sequence
+            # random mutation at random position, also fix sequence constraint
+            mut_start = time.time()
+            if self.step != 0:
+                seq_curr = self.mutate(seq)
+                if delta_step_best < 30:
+                    for i in range(4): seq_curr = self.mutate(seq_curr)
+            else: seq_curr = seq
+
+
+            # Preprocess the sequence, relatively expensive operations (0.04s per pass)
             seq_curr = torch.from_numpy(seq_curr).long()
             model_input, msa1hot = prep_seq(seq_curr)
+            muttime += time.time() - mut_start
 
-            nn_start = time.time()
 
             # probe effect of mutation
+            nn_start = time.time()
             structure_predictions = self.structure_models( #run trRosettaEnsemble -> runs trrosetta n times
                 model_input, use_n_models=cfg.n_models
             )
-
             nntime += time.time() - nn_start
 
-            loss_start = time.time()
 
+            #loss functions
+            loss_start = time.time()
             E_curr, metrics = self.loss(
                 seq_curr, structure_predictions, msa1hot, track=True
             )
-
             losstime += time.time() - loss_start
 
+
+            #scoring evaluation
+            score_start = time.time()
             if E_curr < self.best_E:
-                self.best_bkg = metrics["background_loss"].cpu().detach().numpy()
-                self.best_mtf = metrics["motif_loss"].cpu().detach().numpy()
-                self.best_site = metrics["site_loss"].cpu().detach().numpy()
-                self.best_distogram_distribution = (structure_predictions['dist'].detach().cpu().numpy())
+                self.best_bkg = metrics["background_loss"]
+                self.best_mtf = metrics["motif_loss"]
+                self.best_site = metrics["site_loss"]
+                self.best_distogram_distribution = structure_predictions['dist']
+
 
             seq, E = self.metropolis(seq, seq_curr, E_curr, E)
+
             E_tracker.append(v(E))
             delta_step_best = self.step - self.best_step
-            self.site_weight = self.step * 0.0001
+            scoretime += time.time() - score_start
 
-            if self.step % nsave == 0 or (cfg.TRACE and self.step % 10 == 0):
+            misc_start = time.time()
+            if time.time() - self.last_update > cfg.report_interval or self.step == 0:
                 fps = self.step / (time.time() - start_time)
                 background_loss = metrics["background_loss"].cpu().detach().numpy()
                 mtf_loss = metrics["motif_loss"].cpu().detach().numpy()
                 site_loss = metrics["site_loss"].cpu().detach().numpy()
+
+                b_bkg = self.best_bkg.cpu().detach().numpy()
+                b_mtf = self.best_mtf.cpu().detach().numpy()
+                b_site = self.best_site.cpu().detach().numpy()
+
+                self.last_update = time.time()
 
                 print(
                     f"Step {self.step:4d} / {self.N:4d} ({delta_step_best}) || "
@@ -726,18 +742,25 @@ class MCMC_Optimizer(torch.nn.Module):
                     flush=True,
                 )
                 print(f"STATS      || loss: {E_curr:.3f}, bkg: {background_loss:.3f}, mtf: {mtf_loss:.3f}, site: {site_loss:.3f}")
-                print(f"BEST STATS || loss: {self.best_E:.3f}, bkg: {self.best_bkg:.3f}, mtf: {self.best_mtf:.3f}, site: {self.best_site:.3f}")
-                print(f"total time: {(time.time() - start_time):.2f}")
-                print(f"nn time:    {nntime:.2f}")
-                print(f"loss time:  {losstime:.2f}")
+                print(f"BEST STATS || loss: {self.best_E:.3f}, bkg: {b_bkg:.3f}, mtf: {b_mtf:.3f}, site: {b_site:.3f}")
+
+                #timings
+                total_time = time.time() - start_time
+                print(f"total time: {total_time:.1f}")
+                print(f"mut time:   {muttime:.2f}\t| {100*muttime/total_time:.2f}%")
+                print(f"nn time:    {nntime:.1f}\t| {100*nntime/total_time:.2f}%")
+                print(f"loss time:  {losstime:.2f}\t| {100*losstime/total_time:.2f}%")
+                print(f"score time: {scoretime:.1f}\t| {100*scoretime/total_time:.2f}%")
+                print(f"misc time:  {misctime:.2f}\t| {100*misctime/total_time:.2f}%")
 
                 plot_muts(self.gradient, self.results_dir / "gradient.jpg")
                 plot_muts(self.good_mutations, self.results_dir / "mutations.jpg")
 
-                if self.step % (nsave * 2) == 0 or (cfg.TRACE and self.step % 10 == 0):
+                if time.time() - self.last_graph > 1.8*cfg.report_interval or self.step == 0:
+                    self.last_graph = time.time()
 
                     distogram = distogram_distribution_to_distogram(
-                       self.best_distogram_distribution
+                       self.best_distogram_distribution.cpu().detach().numpy()
                     )
                     plot_distogram(
                        distogram,
@@ -754,18 +777,27 @@ class MCMC_Optimizer(torch.nn.Module):
                     )
                     print(f"\n--- Current best: {self.best_sequence}")
 
-            if (1 + self.step) % 11 == 0:
+            if (1 + self.step) % (cfg.report_interval//2) == 0:
                 with open('control.txt', 'r') as reader:
                     lines = reader.readlines()
                     line = lines[0].strip()
+                if line == "eval":
+                    cmd = lines[1].strip()
+                    print("EVALUATE")
+                    print("cmd: " + cmd)
+                    try:
+                        eval(cmd.strip())
+                    except:
+                        print("ERROR")
                 if line == "exit" or line == "break":
                     print("ending due to command")
                     break
                 elif line == 'matrix':
-                    if lines[1] == 'n': cfg.MATRIX = False
+                    if lines[1].strip() == 'n': cfg.MATRIX = False
                     else: cfg.MATRIX = True
+                    print("MATRIX: " + str(cfg.MATRIX))
                 elif line == 'gradient':
-                    if lines[1] == 'n': cfg.GRADIENT = False
+                    if lines[1].strip() == 'n': cfg.GRADIENT = False
                     else: cfg.GRADIENT = True
                 elif line == "beta":
                     try:
@@ -797,15 +829,17 @@ class MCMC_Optimizer(torch.nn.Module):
                             print("pause...")
                             time.sleep(30)
 
-            if (delta_step_best > 300 and self.step > 1500 and self.step % 97 == 0) or (cfg.FAST and self.step > 499 and self.step % 50 == 0):
+            if (delta_step_best > 300 and self.step > 1500 and self.step % 100 == 0) or (cfg.FAST and self.step > 499 and self.step % 50 == 0):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))
-                if abs(std) < 0.01 or (cfg.FAST and abs(std) < 0.05):
+                if abs(std) < 0.01 or (cfg.FAST and abs(std) < 0.02):
                     break
 
             if self.step % self.M == 0 and self.step != 0:
                 seq = self.fixup_MCMC(seq)
+
+            misctime += time.time() - misc_start
 
         ########################################
 
@@ -822,6 +856,10 @@ class MCMC_Optimizer(torch.nn.Module):
         #for key in self.best_metrics.keys():
         #    self.best_metrics[key] = v(metrics[key])
 
+        TM_score_proxy = top_prob(structure_predictions['dist'], verbose=False)
+        TM_score_proxy = TM_score_proxy[0]  # We're running with batch_size = 1
+
+        self.best_metrics["TM_score_proxy"] = TM_score_proxy
         self.best_metrics["sequence"] = self.best_sequence
         self.best_metrics["motifweight"] = self.motif_weight
         self.best_metrics["motifmode"] = self.motifmode
