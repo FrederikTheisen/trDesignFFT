@@ -100,7 +100,7 @@ def main():
     # prepare property template
     ########################################################
 
-    with open("msa_properties.txt") as reader:
+    with open(cfg.MSA_FILE) as reader:
         lines = reader.readlines()
         for line in lines:
             if len(line) > 10 and line[0:9] == 'BAR_GRAPH':
@@ -207,12 +207,12 @@ def main():
         if use_random_motif_mode:
             cfg.motif_placement_mode = np.random.randint(0,6)
 
-        #if i > 0:
+        if i > 0:
             #cfg.TEMPLATE = random.choice([True, False])
             #cfg.TEMPLATE_MODE = random.choice(['msa','predefined','motifs'])
-            #cfg.GRADIENT = random.choice([True, False])
-            #cfg.MATRIX = random.choice([True, True, False])
-            #cfg.MATRIX_MODE = random.choice(['msa','probability'])
+            cfg.GRADIENT = random.choice([True, False])
+            #cfg.MATRIX = random.choice([True, True, False, True])
+            #cfg.MATRIX_MODE = random.choice(['msa','probability', 'groups'])
 
         mtf_weight = cfg.motif_weight_max
         if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
@@ -224,6 +224,7 @@ def main():
         print("GRADIENT: " + str(cfg.GRADIENT))
         print("MATRIX:   " + str(cfg.MATRIX))
         print("  MODE:   " + str(cfg.MATRIX_MODE))
+        print("  DYNAMIC:" + str(cfg.MATRIX_DYNAMIC))
         print("  FILE:   " + str(cfg.MATRIXFILE))
         print("TEMPLATE: " + str(cfg.TEMPLATE))
         print("  MODE:   " + str(cfg.TEMPLATE_MODE))
