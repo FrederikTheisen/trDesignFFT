@@ -495,59 +495,94 @@ class MCMC_Optimizer(torch.nn.Module):
         from_aa = idx2aa(seq_curr[0])[idx]
 
         #Perform mutation
-        if cfg.MATRIX and self.mutation_score[idx][0] is not None:
-            mut = self.mutation_score[idx]
-            mut_score = mut[2]
-            accepted = mut[3]
-            mins = min(self.mutation_score, key=lambda x: x[2])[2]
-            maxs = max(self.mutation_score, key=lambda x: x[2])[2]
+        mutation_list = self.mutation_score[idx]
 
+        if cfg.MATRIX:
+            if len(mutation_list) == 0: mutation_list.append([from_aa, from_aa, 0, True, 0]) #Adds accepted dummy mutation
+
+            #mut = self.mutation_score[idx]
+            #mut_score = mut[2]
+            #accepted = mut[3]
+            #mins = min(self.mutation_score, key=lambda x: x[2])[2]
+            #maxs = max(self.mutation_score, key=lambda x: x[2])[2]
+
+            ################################
+            ### SUBSTITUTION MATRIX MODE ###
             if cfg.MATRIX_MODE == 'probability':
-                if mut_score > 0.66 * maxs and accepted:
-                    print("##Revert: " + str(idx) + " " + str(mut))
-                    self.reverse_log = True
-                    seq_curr[0, idx] = aa2idx(mut[0])
-                else:
-                    if mut_score > 0.33 * maxs:
-                        p = 0
-                        print("Bad mut:  " + str(idx) + " " + str(mut))
-                        self.reverse_log = True
-                    elif mut_score > 0.1 * maxs: p = 0
-                    else: p = 1
+                last_accepted = None
+                verybad = ""
 
-                    list_of_candidates = [k for k,v in self.substitution_matrix[mut[p]].items()]
-                    probability_distribution = [v for k,v in self.substitution_matrix[mut[p]].items()]
-                    mutation = random.choices(list_of_candidates, probability_distribution, k=1)
-                    seq_curr[0, idx] = aa2idx(mutation)
+                for m in reversed(mutation_list):
+                    if m[2] > 0.1:
+                        verybad += m[1]
+                    if m[3]:
+                        last_accepted = m
+                        break
+
+                if last_accepted[2] < 0.005: p = 1
+                else: p = 0
+
+                for i in range(10):
+                    list_of_candidates = [k for k,v in self.substitution_matrix[last_accepted[p]].items()]
+                    probability_distribution = [v for k,v in self.substitution_matrix[last_accepted[p]].items()]
+                    mutation = random.choices(list_of_candidates, probability_distribution, k=1)[0]
+                    if mutation not in verybad: break
+
+                seq_curr[0, idx] = aa2idx(mutation)
+
+            #############################################
+            ### AMINO ACID PROPERTY GROUP MATRIX MODE ###
             elif cfg.MATRIX_MODE == 'groups':
-                ref = ""
-                if mut_score < 0: ref = mut[1]
-                else: ref = mut[0]
+                recent_mutations = []
 
-                group = []
-                for k,v in cfg.AA_PROPERTY_GROUPS.items():
-                    if ref in v:
-                        for aa in v:
-                            if aa in cfg.RM_AA: continue
-                            group.append(aa)
+                for m in reversed(mutation_list):
+                    if self.step - m[4] > self.seq_L * 10: break
+                    recent_mutations.append(m)
 
-                seq_curr[0, idx] = aa2idx(np.random.choice(group))
+                if len(recent_mutations) == 0:
+                    seq_curr[0, idx] = np.random.choice(self.aa_valid)
+                else:
+                    group_scores = [[0,0,None]] * len(cfg.AA_PROPERTY_GROUPS)
+                    i = 0
+                    for k,v in cfg.AA_PROPERTY_GROUPS.items():
+                        group_scores[i][2] = v
+                        for m in recent_mutations:
+                            if m[1] in v:
+                                group_scores[i][1] += m[2]
+                                group_scores[i][0] += 1
+                        i += 1
+
+                    best = ""
+                    best_s = 1000
+
+                    for i in range(len(group_scores)):
+                        g = group_scores[i]
+                        avg = g[1]/(g[0]+1)
+                        if avg < best_s:
+                            best = g[2]
+                            best_s = avg
+                        elif avg == best_s:
+                            best += g[2]
+
+                    options = []
+                    for aa in best:
+                        if aa in cfg.RM_AA: continue
+                        options.append(aa)
+
+                    seq_curr[0, idx] = aa2idx(np.random.choice(options))
+
+            ################################
+            ### MSA MUTATION MATRIX MODE ###
             elif cfg.MATRIX_MODE == 'msa':
                 group = cfg.TEMPLATE_AA_PROPERTIES[idx]
                 seq_curr[0, idx] = aa2idx(np.random.choice(group))
+
+            ###########################
+            ### MODE NOT RECOGNIZED ###
             else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
-        elif self.mutation_score[idx][0] is not None:
-            mut = self.mutation_score[idx]
-            mut_score = mut[2]
-
-            maxs = max(self.mutation_score, key=lambda x: x[2])[2]
-
-            if mut_score > 0.66 * maxs and mut[3]:
-                print("##Revert: " + str(idx) + " " + str(mut))
-                self.reverse_log = True
-                seq_curr[0, idx] = aa2idx(mut[0])
-            else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
+        #######################
+        ### NON MATRIX MODE ###
         else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
         to_aa = idx2aa(seq_curr[0])[idx]
@@ -600,10 +635,9 @@ class MCMC_Optimizer(torch.nn.Module):
 
             self.mutation_log.append([mut[0], mut[1], mut[2], self.substitution_matrix[mut[1]][mut[2]], deltaE, accepted])
 
-            if accepted:
-                self.n_accepted_mutations += 1
+            if accepted: self.n_accepted_mutations += 1
 
-            self.mutation_score[mut[0]] = [mut[1], mut[2], deltaE, accepted]
+            self.mutation_score[mut[0]].append([mut[1], mut[2], deltaE, accepted, self.step]) #from, to, result, accepted, when
 
             if self.reverse_log:
                 print("result:  " + str(mut) + " " + str(deltaE) + " | " + str(accepted))
@@ -622,15 +656,18 @@ class MCMC_Optimizer(torch.nn.Module):
             seq = torch.from_numpy(
                 aa2idx(self.best_sequence).reshape([1, self.seq_L])
             ).long()
-            self.mutation_score = [[None,None,0,False]] * self.seq_L
+            self.mutation_score = [[]] * self.seq_L
 
-        elif np.mean(self.bad_accepts[-100:]) < 0.03:
+        elif np.mean(self.bad_accepts[-100:]) < 0.02:
             # There has been some progress recently, but we're no longer accepting any bad mutations...
             self.beta = self.beta / self.coef
         else:
             self.beta = self.beta * self.coef
 
         self.beta = np.clip(self.beta, 5, self.MaxM)
+
+        #FIX DYNAMIC MATRIX
+        if cfg.MATRIX_DYNAMIC: cfg.MATRIX_MODE = random.choice(['msa', 'probability', 'groups', 'none'])
 
         return seq
 
@@ -665,7 +702,7 @@ class MCMC_Optimizer(torch.nn.Module):
         self.best_distogram_distribution = None
         self.gradient = [1] * self.seq_L
         self.good_mutations = [0] * self.seq_L
-        self.mutation_score = [[None,None,0]] * self.seq_L
+        self.mutation_score = [[]] * self.seq_L
         self.reverse_log = False
         self.current_mutations = []
         self.mutation_log = []
@@ -679,8 +716,8 @@ class MCMC_Optimizer(torch.nn.Module):
             mut_start = time.time()
             if self.step != 0:
                 seq_curr = self.mutate(seq)
-                if delta_step_best < 30:
-                    for i in range(4): seq_curr = self.mutate(seq_curr)
+                #if cfg.MATRIX_MODE == 'msa':
+                #    for i in range(10): seq_curr = self.mutate(seq_curr)
             else: seq_curr = seq
 
 
@@ -833,7 +870,7 @@ class MCMC_Optimizer(torch.nn.Module):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))
-                if abs(std) < 0.01 or (cfg.FAST and abs(std) < 0.02):
+                if abs(std) < 0.005 or (cfg.FAST and abs(std) < 0.02):
                     break
 
             if self.step % self.M == 0 and self.step != 0:
