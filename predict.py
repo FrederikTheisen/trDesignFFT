@@ -69,7 +69,7 @@ def get_ensembled_predictions(input_file=None, output_file=None, seq=None, index
 
     averaged_outputs = utils.average_dict(outputs, detach = True)
 
-    #averaged_outputs = ensemble_model(input_data,use_n_models=10,detach = True)
+    #averaged_outputs = ensemble_model(input_data,use_n_models=5,detach = True)
 
     end = time.time()
     print("NN runtime: " + str(end - start))
