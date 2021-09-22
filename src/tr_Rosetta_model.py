@@ -135,7 +135,6 @@ class trRosettaNetwork(nn.Module):
 
     def __init__(self, filters=64, kernel=3, num_layers=61):
         """Construct a trRosetta network."""
-        print(">>Constructing a trRosetta network...")
         super().__init__()
         self.filters = filters
         self.kernel = kernel
