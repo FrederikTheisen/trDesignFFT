@@ -10,6 +10,7 @@ import mcmc
 from tr_Rosetta_model import trRosettaEnsemble, prep_seq
 from utils import aa2idx, distogram_distribution_to_distogram, idx2aa, plot_progress, d
 import torch
+from time
 
 def distogram_distribution_to_distogram(distribution, reduction_style="max", keep_no_contact_bin=False):
     distribution = np.squeeze(distribution)
@@ -31,9 +32,7 @@ def distogram_distribution_to_distogram(distribution, reduction_style="max", kee
     if reduction_style == "max":
         D_pred_bins = np.argmax(distogram_distribution, axis=2)
     elif reduction_style == "mean":
-        D_pred_bins = (
-            np.abs(distogram_distribution - np.mean(distogram_distribution, axis=0))
-        ).argmin(axis=2)
+        D_pred_bins = ( np.abs(distogram_distribution - np.mean(distogram_distribution, axis=0)) ).argmin(axis=2)
     elif reduction_style == "sample":
         D_pred_bins = sample_distogram_bins(distogram_distribution, 500)
 
@@ -75,52 +74,83 @@ def get_sequence(L, aas, native_frequencies):
 
     return seq
 
-def generate_bkg(length,n_samples,met_first):
+def generate_bkg(length,n_samples,n_iter,met_first):
     met_first = met_first
     L = length
     n_samples = n_samples
 
     aas = list("ARNDCQEGHILKMFPSTWYV")
     sequences = []
-    background = {'dist':[], 'omega':[], 'theta':[], 'phi':[]}
+    backgrounds = {'dist':[], 'omega':[], 'theta':[], 'phi':[]}
 
     nn = NN()
 
-    for i in range(n_samples):
-        print(f"Running {i+1} of {n_samples}")
-        seq = get_sequence(L, aas, cfg.native_freq)
-        if met_first: seq = "M" + seq[1:]
-        sequences.append(seq)
-        seq = aa2idx(seq).copy().reshape([1, L])
+    startime = time.time()
+    runtime = 0
 
-        output = nn(seq)
+    for j in range(n_iter):
+        background = {'dist':[], 'omega':[], 'theta':[], 'phi':[]}
 
-        background['dist'].append(np.squeeze(output['dist']))
-        background['theta'].append(np.squeeze(output['theta']))
-        background['omega'].append(np.squeeze(output['omega']))
-        background['phi'].append(np.squeeze(output['phi']))
+        for i in range(n_samples):
+            print(f"Running iteration {j+1}, sample {i+1} of {n_samples}")
+            seq = get_sequence(L, aas, cfg.native_freq)
+            if met_first: seq = "M" + seq[1:]
+            sequences.append(seq)
+            seq = aa2idx(seq).copy().reshape([1, L])
 
+            output = nn(seq)
+
+            background['dist'].append(np.squeeze(output['dist']))
+            background['theta'].append(np.squeeze(output['theta']))
+            background['omega'].append(np.squeeze(output['omega']))
+            background['phi'].append(np.squeeze(output['phi']))
+
+        print("Averaging iteration results...")
+        for key in background.keys():
+            print(key + "...")
+            background[key] = torch.tensor(background[key])
+            background[key] = torch.mean(background[key], axis=0).permute(2,1,0).numpy()
+            backgrounds[key].append(background[key])
+        print("Averaging done")
+        runtime = time.time() - startime
+        completed = (j+1)*(i+1)
+        total = n_iter*n_samples
+        waiting = total - completed
+        progress = completed / total
+        dt_sample = runtime/completed
+
+        print(f"Expected finish in {dt_sample*waiting} seconds")
+
+
+    print("Averaging all iterations...")
     for key in background.keys():
-        background[key] = torch.tensor(background[key])
-
-    for key in background.keys():
-        background[key] = torch.mean(background[key], axis=0).permute(2,1,0).numpy()
+        print(key + "...")
+        backgrounds[key] = np.mean(backgrounds[key], axis=0)
+    print("Averaging done")
 
     pref = ""
     if L < 100: pref = "0"
-    np.savez_compressed(f'../backgrounds/background_distributions_{pref}{L}.npz', **background)
+    np.savez_compressed(f'../backgrounds/background_distributions_{pref}{L}.npz', **backgrounds)
+    print(f"Background generation completed for {L} residue sequences with {n_iter*n_samples} total samples")
 
 def check_bkg(length):
     pref = ""
     if length < 100: pref = "0"
     bkg = dict(np.load(f'../backgrounds/background_distributions_{pref}{length}.npz'))
     distogram = distogram_distribution_to_distogram(bkg['dist'],'mean',True)
-    plot_distogram(bkg['dist'][:,:,1],'tst.png','dist')
+    plot_distogram(bkg['dist'][:,:,1],f'{pref}{length}_1.png','dist')
+    plot_distogram(bkg['dist'][:,:,5],f'{pref}{length}_5.png','dist')
+    plot_distogram(bkg['dist'][:,:,10],f'{pref}{length}_10.png','dist')
+    plot_distogram(bkg['dist'][:,:,15],f'{pref}{length}_15.png','dist')
+    plot_distogram(bkg['dist'][:,:,20],f'{pref}{length}_20.png','dist')
+    plot_distogram(bkg['dist'][:,:,25],f'{pref}{length}_25.png','dist')
+    plot_distogram(bkg['dist'][:,:,30],f'{pref}{length}_30.png','dist')
+    plot_distogram(bkg['dist'][:,:,35],f'{pref}{length}_35.png','dist')
 
 def main():
     L = 290
 
-    generate_bkg(length=L,n_samples=180,met_first=True)
+    generate_bkg(length=L, n_samples=100, n_iter = 50, met_first=True)
 
     check_bkg(L)
 

@@ -149,21 +149,20 @@ class Motif_Satisfaction(torch.nn.Module):
         super().__init__()
 
         self.device = torch.device(d())
-        self.motif = dict(np.load(motif_npz_path))
+        self.motif_file = dict(np.load(motif_npz_path))
+        self.motif = self.motif_file.copy()
         self.mask = mask
-        self.flatmask = torch.clip(mask,0,1)
+        #self.flatmask = torch.clip(mask,0,1)
         self.keys = keys or Motif_Satisfaction.DEFAULT_KEYS
         self.seq_L = self.mask.shape[0]
         self.motifs = motifs
 
-        save_dir = Path(save_dir) if save_dir else None
+        self.save_dir = Path(save_dir) if save_dir else None
 
         #rearrange npz data
         if self.motifs is not None:
-            print("Discontinous Motifs")
-            maps = np.array([])
             for key in self.keys:
-                map = self.motif[key]
+                map = self.motif_file[key]
                 restraint = np.zeros((self.seq_L, self.seq_L))
 
                 for m1 in motifs[:]:
@@ -191,15 +190,76 @@ class Motif_Satisfaction(torch.nn.Module):
         for key in self.keys:
             # self.motif[key] = self.motif[key][start_i: start_i + self.seq_L, start_i : start_i + self.seq_L]
 
-            if save_dir:
+            if self.save_dir:
                 plot_values = self.motif[key].copy()
                 plot_values[plot_values == 0] = cfg.limits[key][1]
                 np.fill_diagonal(plot_values, 0)
                 plot_distogram(
                     plot_values,
-                    save_dir / f"_{key}_target.jpg",
+                    self.save_dir / f"_{key}_target.jpg",
                     clim=cfg.limits[key],
                 )
+
+        # Get the bin_indices for each of the motif_targets:
+        # TODO make this allow linear combinations of the two closest bins
+        self.bin_indices = {}
+        for key in self.keys:
+            indices = np.abs(
+                cfg.bin_dict_np[key][np.newaxis, np.newaxis, :]
+                - self.motif[key][:, :, np.newaxis]
+            ).argmin(axis=-1)
+
+            # Fix the no-contact locations:
+            no_contact_locations = np.argwhere(self.motif[key] == 0)
+            indices[no_contact_locations[:, 0], no_contact_locations[:, 1]] = 0
+            self.bin_indices[key] = (
+                torch.from_numpy(indices).long().to(d()).unsqueeze(0)
+            )
+
+    def update(self, mask, motifs, print = True):
+        self.mask = mask
+
+        #rearrange npz data
+        if self.motifs is not None:
+            for key in self.keys:
+                map = self.motif_file[key]
+                restraint = np.zeros((self.seq_L, self.seq_L))
+
+                for m1 in motifs[:]:
+                    for i in range(m1[5],m1[6]+1):
+                        m1i = i - m1[5] #local index
+                        s1i = m1[0]+m1i #template 1 index
+                        c1 = m1[3][m1i]
+                        if c1 in cfg.structure_restraint_letters: #contraint is structural?
+                            for m2 in motifs[:]:
+                                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                                    continue
+                                for j in range(m2[5],m2[6]+1):
+                                    m2i = j - m2[5]  #local index
+                                    s2i = m2[0]+m2i  #template 2 index
+                                    c2 = m2[3][m2i]
+                                    if c2 in cfg.structure_restraint_letters: #contraint is structural?
+                                        restraint[i,j] = map[s1i,s2i]
+
+                self.motif[key] = restraint
+
+
+        #This section appears to plot the target motif restraints
+        # If the target is larger than the sequence, crop out a section of seq_L x seq_L:
+        # start_i = 0  # Start at the top left
+        if print:
+            for key in self.keys:
+                # self.motif[key] = self.motif[key][start_i: start_i + self.seq_L, start_i : start_i + self.seq_L]
+
+                if self.save_dir:
+                    plot_values = self.motif[key].copy()
+                    plot_values[plot_values == 0] = cfg.limits[key][1]
+                    np.fill_diagonal(plot_values, 0)
+                    plot_distogram(
+                        plot_values,
+                        self.save_dir / f"_{key}_target.jpg",
+                        clim=cfg.limits[key],
+                    )
 
         # Get the bin_indices for each of the motif_targets:
         # TODO make this allow linear combinations of the two closest bins
@@ -231,14 +291,85 @@ class Motif_Satisfaction(torch.nn.Module):
             distribution = structure_distributions[key].squeeze()
             probs = torch.gather(distribution, 0, self.bin_indices[key])
             log_probs = torch.log(probs)
-            #masked = (log_probs * self.mask)
             motif_loss -= torch.mean(log_probs * self.mask) #.mean()
-            #motif_loss_pos -= (log_probs * self.flatmask).mean(dim=[0,1])
 
         #motif_loss_pos = torch.clip(motif_loss_pos, motif_loss*0.5, motif_loss*2)
 
         return motif_loss, 0
 
+class Motif_Search_Satisfaction(torch.nn.Module):
+    DEFAULT_KEYS = ["dist", "omega", "theta", "phi"]
+
+    def __init__(self, motif_npz_path, seq_L):
+        super().__init__()
+
+        self.device = torch.device(d())
+        self.motif_file = dict(np.load(motif_npz_path))
+        self.motif = self.motif_file.copy()
+        self.keys = Motif_Satisfaction.DEFAULT_KEYS #cosndier reducing parameters here
+        self.seq_L = seq_L
+
+    def update(self, mask=None, motifs = None):
+        self.mask = mask
+        self.motifs = motifs
+
+        #rearrange npz data
+        if self.motifs is not None:
+            for key in self.keys:
+                map = self.motif_file[key]
+                restraint = np.zeros((self.seq_L, self.seq_L))
+
+                for m1 in motifs[:]:
+                    for i in range(m1[5],m1[6]+1):
+                        m1i = i - m1[5] #local index
+                        s1i = m1[0]+m1i #template 1 index
+                        c1 = m1[3][m1i]
+                        if c1 in cfg.structure_restraint_letters: #contraint is structural?
+                            for m2 in motifs[:]:
+                                if m1 == m2: continue
+                                if math.fabs(m2[4]-m1[4]) > 1: #motifs are in restrained groups?
+                                    continue
+                                for j in range(m2[5],m2[6]+1):
+                                    m2i = j - m2[5]  #local index
+                                    s2i = m2[0]+m2i  #template 2 index
+                                    c2 = m2[3][m2i]
+                                    if c2 in cfg.structure_restraint_letters: #contraint is structural?
+                                        restraint[i,j] = map[s1i,s2i]
+
+                self.motif[key] = restraint
+
+        self.bin_indices = {}
+        for key in self.keys:
+            indices = np.abs(
+                cfg.bin_dict_np[key][np.newaxis, np.newaxis, :]
+                - self.motif[key][:, :, np.newaxis]
+            ).argmin(axis=-1)
+
+            # Fix the no-contact locations:
+            no_contact_locations = np.argwhere(self.motif[key] == 0)
+            indices[no_contact_locations[:, 0], no_contact_locations[:, 1]] = 0
+            self.bin_indices[key] = (
+                torch.from_numpy(indices).long().to(d()).unsqueeze(0)
+            )
+
+    def squeeze(self, structure_distributions):
+        self.distributions = {}
+
+        for key in self.keys:
+            self.distributions[key] = structure_distributions[key].squeeze()
+
+    def forward(self):
+        """ returns a loss wrt a target motif """
+
+        motif_loss = 0
+
+        for key in self.keys:
+            distribution = self.distributions[key]
+            probs = torch.gather(distribution, 0, self.bin_indices[key])
+            log_probs = torch.log(probs)
+            motif_loss -= torch.mean(log_probs * self.mask) #.mean()
+
+        return motif_loss
 
 class Site_Satisfaction(torch.nn.Module):
 
@@ -257,7 +388,6 @@ class Site_Satisfaction(torch.nn.Module):
         #rearrange npz data
         if self.motifs is not None:
             print("Site loss function")
-            maps = np.array([])
             for key in self.keys:
                 map = self.motif[key]
                 restraint = np.zeros((self.seq_L, self.seq_L))

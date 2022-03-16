@@ -10,6 +10,7 @@ import string
 
 # lib
 from matplotlib import pylab as plt
+from matplotlib import pyplot
 import numpy as np
 import torch
 import math
@@ -18,7 +19,21 @@ import random
 # pkg
 import config as cfg
 
+def softmax(z, axis = 1):
+    if axis == 1: return softmax1(z)
+    else: return softmax2(z)
 
+def softmax1(z):
+    """Compute softmax values for each sets of scores in x."""
+    #assert len(z.shape) == 2
+    e_x = np.exp(z) / np.sum(np.exp(z), axis=1, keepdims=True)
+    div = np.sum(e_x, axis=1)
+    div = div[:, np.newaxis] # dito
+    return e_x / div
+
+def softmax2(z):
+    """Compute softmax values for each sets of scores in x."""
+    return np.exp(z) / np.sum(np.exp(z), axis=0)
 
 def d(tensor=None, force_cpu=cfg.FORCECPU):
     """Return 'cpu' or 'cuda' depending on context. Is used to set tensor calculation device"""
@@ -140,10 +155,10 @@ def definegroupbydist(motifs, motif_npz_path, mode = 4):
 
     p = 0
     for i in bestorder:
-        if p < len(bestorder) - 1:
-            print(distmat[bestorder[p],bestorder[p+1],0])
         motifs[i][4] = p
         p = p + 1
+        print(motifs[i])
+
 
     return motifs
 
@@ -158,17 +173,23 @@ def motifdistscore(distmat, order, mode = 4):
 
     return score
 
-def seqfrommotifs(motifs,sequence, bkgseq):
+def seqfrommotifs(motifs,sequence, bkgseq, only_restrained = False):
     newseq = ""
     for pos in range(len(bkgseq)):
         use_bkg = True
         for m in motifs[:]:
             if pos >= m[5] and pos <= m[6]:
                 mpos = pos - m[5]
-                if m[3][mpos] in cfg.structure_restraint_letters:
+                if only_restrained:
+                    if m[3][mpos] in cfg.structure_restraint_letters:
+                        templatepos = m[0] + mpos
+                        use_bkg = False
+                        newseq += sequence[templatepos]
+                else:
                     templatepos = m[0] + mpos
                     use_bkg = False
                     newseq += sequence[templatepos]
+
                 break
 
         if use_bkg == True: newseq += bkgseq[pos]
@@ -252,7 +273,11 @@ def distogram_distribution_to_distogram(
 
 
 ### Plotting Function ###
-
+def print_motif_ranges(motifs):
+    line = ""
+    for m in motifs:
+        line += m[5] + "-" + m[6] + "  "
+    return line[:-2]
 
 def plot_distogram(distogram, savepath, title="", clim=None):
     """Save a plot of a distogram to the given path."""

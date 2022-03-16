@@ -17,14 +17,15 @@ report_interval = 60 #seconds
 
 TEMPLATE = False
 TEMPLATE_MODE = 'msa' #msa, motifs, predefined
-GRADIENT = False
-MATRIX = True
-MATRIX_MODE = 'probability' #probability, msa, groups
-MATRIX_DYNAMIC = False
-MATRIXFILE = 'pepstruc.txt' #blosum62, pepstruc, fft_290_nobkg
-MSA_FILE = 'msa_290.txt'
+USE_WEIGHTED_IDX = False #good, reciprocal, tm
+OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
+FILE_MATRIX = 'matrix_fft2.txt' #blosum62, pepstruc, fft_290_nobkg
+FILE_PSSM = 'pssm_290.txt'
+FILE_MSA = 'msa_532.txt'
+DYNAMIC_MOTIF_PLACEMENT = False
+PREDEFINED_MOTIFS = False
 
-BACKGROUND = (BKG_WEIGHT > 0)
+BACKGROUND = True
 
 FORCECPU = False
 FAST = False #lower threshold for simulation end parameters
@@ -35,29 +36,31 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 
 # MCMC schedule:
 MCMC = {}
-MCMC["BETA_START"] = 300  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
-MCMC["N_STEPS"] = 20000  # Number of steps for each MCMC optimization
-MCMC["COEF"] = 1.15 #1.25  # Divide BETA by COEF
+MCMC["BETA_START"] = 20  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
+MCMC["N_STEPS"] = 3000  # Number of steps for each MCMC optimization
+MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
-MCMC["MAX"] = 5000
+MCMC["MAX"] = 3000
+MCMC["BAD"] = 0.02
 
-num_simulations = 200  # Number of sequences to design
+num_simulations = 1000  # Number of sequences to design
 
 # seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
 seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
 
 # Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
-# target_motif_path   = 'target_motifs/target.npz'
+# target_motif_path = 'target_motifs/target.npz'
 target_motif_path = '/home/frederik/Documents/EngBF_unbound.npz'
 
 
 use_motifs = True
 use_sites = False
-motif_placement_mode = 2.2 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
+motif_placement_mode = 2.3 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
 motif_weight_max = 1 #min weight is 1
 first_residue_met = True
+PSSM = None
 
 # keep certain positions at specific residues (e.g., "---A---C---")
 #290 residue motif
@@ -75,6 +78,28 @@ motif_constraint = '''----------------------------------------------------------
 motif_position =   '''---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-----111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------'''.replace('\n','')
 
+sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
+FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
+motif_constraint = '''------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rcmcmc----------------------------rcmc----cmmcr-------------------------------rcmcmcr-----------------------rcgcg---------------------------------rcmcmcccgcgcr---------------------rcmc---------rcmgcrrrcgcr-------------------------------------------rmcccmgr----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------g-------------------------------------------------------------------------------------------------m------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+motif_position =   '''---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------111111111-------------------------1111111----11111----------------------------1111111111-----------------------11111---------------------------------1111111111111---------------------1111---------111111111111-------------------------------------------11111111----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------1-------------------------------------------------------------------------------------------------1------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+
+sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
+FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
+motif_constraint = '''-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrcrcccccccm---------------------rrrrrcccccmcrrrrcmmccmcrr----------------------rrcccccmcmccmc----------------------cgggcccccrrrrrrrrrrr--------------rrrccmgmmccgcmrrrrr-------------rrrccccmgccc------ccmmcccccmccc------------------c--------------------ccccmcccmmccrrrrrrr--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------m------------------------------------------------------------------------------------------------gm------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+motif_position =   '''------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------11111111111111111---------------------4444444444444444444444444----------------------44444444444444444444-----------4444444444444444444444444--------------4444444444444444444-------------444444444444444-444444444444444----------------4444444----------------44444444444444444444444444444444444--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------222------------------------------------------------------------------------------------------------3333----------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+
+#restraints for 17/3/2022 start
+sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
+FRFEAGKTYRVTFEYEAGSDNTYAFVVGKGEFQSQASNLEMHELPNTWTDSKKAKKATFLVTGAETGDTWVGIYSTGNASNTRGDSGGNANFRGYNDFMMDNLQIEEI'''.replace('\n','')
+motif_constraint = '''-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------rrrrrrcrcccccccgrrrrrrrrrrrrrrrrrrrrrrrrrrcccccmcrrrrcmmccmcrrrrrrrrrrrrrrrrrrrrrrrrrrcccccmcmccgcrrrrr----------------rcgggcccccrrrrrrrrrrrrrrrrrrrrrrrrrrrrccggmmccgcgrrrrrrrrrrrrrrrrrrrrrccccmgccc------ccggcccccgcccrrrrrrrrrrrrrrrrrrcrrr-----------------ccccccccggccrrrrrrrrrrrrrrrrrrrrrrr-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+motif_position =   '''-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111------111111111111111111111111111111111111111111111111111111111111111111111111111111111111-11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------'''.replace('\n','')
+
 
 #256 residue motif
 #sequence_constraint = '''SHMEKETGPEVDDSKVTYDTIQSKVLKAVIDQAFPRVKEYSLNGHTLPGQVQQFNQVFINNHRITPEVTYKKINETTAEYLMKLRDDAHLINAEMTVRLQVVDNQLHFDVTKIVNHNQVTPGQKIDDESKLLSSISFLGNALVSVSSDQTGAKFDGATMSNNTHVSGDDHIDVTNPMKDLAKGYMYGFVSTDKLAAGVWSNSQNSYGGGSNDWTRLTAYKETVGNANYVGIHSSEWQWEKAYKGIVFPEYTKELPSAKVVITEDANADKNVDWQDGAIAYRSIMNNPQGWEKVKDITAYRIAMNFGSQAQNPFLMTLDGIKKINLHTDGLGQGVLLKGYGSEGHDSGHLNYADIGKRIGGVEDFKTLIEKAKKYGAHLGIHVNASETYPESKYFNEKILRKNPDGSYSYGWNWLDQGINIDAAYDLAHGRLARWEDLKKKLGDGLDFIYVDVWGNGQSGDNGAWATHVLAKEINKQGWRFAIEWGHGGEYDSTFHHWAADLTYGGYTNKGINSAITRFIRNHQKDAWVGDYRSYGGAANYPLLGGYSMKDFEGWQGRSDYNGYVTNLFAHDVMTKYFQHFTVSKWENGTPVTMTDNGSTYKWTPEMRVELVDADNNKVVVTRKSNDVNSPQYRERTVTLNGRVIQDGSAYLTPWNWDANGKKLSTDKEKMYYFNTQAGATTWTLPSDWAKSKVYLYKLTDQGKTEEQELTVKDGKITLDLLANQPYVLYRSKQTNPEMSWSEGMHIYDQGFNSGTLKHWTISGDASKAEIVKSQGANDMLRIQGNKEKVSLTQKLTGLKPNTKYAVYVGVDNRSNAKASITVNTGEKEVTTYTNKSLALNYVKAYAHNTRRNNATVDDTSYFQNMYAFFTTGADVSNVTLTLSREAGDEATYFDEIRTFENNSSMYGDKHDTGKGTFKQDFENVAQGIFPFVVGGVEGVEDNRTHLSEKHDPYTQRGWNGKKVDDVIEGNWSLKTNGLVSRRNLVYQTIPQN
@@ -87,26 +112,37 @@ motif_position =   '''----------------------------------------------------------
 
 
 #predefined start parameters
-use_predef_motif = False
-motifs = [[287, 353, 67, '-rrrrrrrrrrrrgrgrgr------rrrrrrrrrrrrrrrrrrrrrrgrgrrrrrrggrrmrrr---', 1, 0, 66],
-[358, 393, 36, '---rrrrrrrrrrrrrrrrrrrmrmrrgrr------', 1, 69, 104],
-[405, 517, 113, '----rgggr------rrrrrrrrrrrrrrrrrrrrrrrrrrgrgrmgrrgrgrrrrrrrrrrrrrrrrrrrrgggrgmgrrrrrrrrrgrggrrrrrgrrrrrrr--------', 1, 106, 218],
-[539, 569, 31, '-------rgrgrrrggrrrrrrrrrrrr---', 1, 225, 255]]
+use_predef_motif = PREDEFINED_MOTIFS
+motifs = [[288, 389, 102, '-occcccoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgcg--', 1, 0, 101], [406, 426, 21, '---gmcmcccccoo-------', 1, 106, 124], [428, 489, 62, '-----------------occgcmgccgcgo--------------------occcmgccc---', 1, 132, 193], [491, 520, 30, '--ccmgcccccgcccooor-----------', 1, 199, 228], [531, 579, 49, '----------------roooccmgco-----------------------', 1, 241, 289]]
+
+#mmotifs = [[[289, 397, 109, 'oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 1, 109], [406, 486, 81, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc', 1, 120, 200], [493, 526, 34, 'ccmgcccccgcccocor-----------roocor', 1, 217, 250], [543, 556, 14, 'yoccccccccmgcc', 1, 276, 289]]]
+mmotifs = [
+[[532, 579, 48, '-------------rrrcccccmgccrrrrrrrrrrrrrr---------', 0, 2, 49], [285, 306, 22, '---rrrrrrrrrcccccgcgcr', 0, 51, 72], [313, 352, 40, '-------------rrrrrcccccmcrrrrcmgccmcrrr-', 0, 76, 115], [360, 389, 30, '-------rrrrrrrrcccccmcmccccr--', 0, 119, 148], [409, 427, 19, '-mcmrrrrrrrrrrr----', 0, 149, 167], [433, 459, 27, '------rrrrrrrccggmccccccrrr', 0, 180, 206], [465, 488, 24, '---------rrrrcccgmccrrr-', 0, 219, 242], [491, 520, 30, '-rcccccccccmccc---------------', 0, 260, 289]],
+#[[465, 488, 24, '---------rrrrcccgmccrrr-', 0, 0, 23], [491, 520, 30, '-rcccccccccmccc---------------', 0, 37, 66], [532, 579, 48, '-------------rrrcccccmgccrrrrrrrrrrrrrr---------', 0, 82, 129], [285, 306, 22, '---rrrrrrrrrcccccgcgcr', 0, 134, 155], [313, 352, 40, '-------------rrrrrcccccmcrrrrcmgccmcrrr-', 0, 159, 198], [360, 389, 30, '-------rrrrrrrrcccccmcmccccr--', 0, 204, 233], [409, 427, 19, '-mcmrrrrrrrrrrr----', 0, 236, 254], [433, 459, 27, '------rrrrrrrccgcmccccccrrr', 0, 263, 289]]
+]
+#mmotifs = [[[940, 940, 1, 'm', 0, 10, 10], [842, 842, 1, 'g', 0, 61, 61], [548, 555, 8, 'rmcccmgr', 0, 83, 90], [297, 305, 9, '---rcmcmc', 0, 130, 138], [342, 346, 5, 'cmmcr', 0, 144, 148], [331, 337, 7, '---rcmc', 0, 155, 161], [375, 384, 10, '---rcmcmcr', 0, 179, 188], [446, 458, 13, 'rcmcmcccgcgcr', 0, 202, 214], [480, 483, 4, 'rcmc', 0, 237, 240], [493, 504, 12, 'rcmgcrrrcgcr', 0, 256, 267], [408, 412, 5, 'rcgcg', 0, 279, 283]]]
+
+# mmotifs = [
+# #[[288, 393, 106, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygy-----', 1, 0, 105], [406, 419, 14, 'rrrrgrgrrrrr--', 1, 106, 119], [420, 489, 70, '-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 125, 194], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 208, 244], [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 247, 289]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 93, 202], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 206, 289], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 7, 43],    [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 49, 91]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 94, 203], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 206, 289], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 5, 41],    [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 47, 89]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 95, 204], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 206, 289], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 3, 39],    [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 49, 91]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 96, 205], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 206, 289], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 4, 40],    [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 45, 87]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 49, 158], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 162, 245], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 249, 285], [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 3, 45]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 3, 112],  [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 116, 199], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 203, 239], [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 243, 285]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 91, 200], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 203, 286], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 50, 86],   [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 5, 47]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 91, 200], [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 201, 284], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 1, 37],    [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 43, 85]],
+# [[288, 397, 110, '-oyyyyyoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgygyorr------', 1, 3, 112],  [406, 489, 84, 'ocygmymyyyyycc-------------------------occgcmgccccgo--------------------occcmgccc---', 1, 116, 199], [491, 527, 37, '--ccmgcccccgcccocor-----------roocor-', 1, 249, 285], [537, 579, 43, '------yoccccccccmgcc-----------------------', 1, 203, 245]],
+# ]
 
 use_predef_start = False
 
-#290 residue start seq
-best_seq = "MLMLYKHQWTIILYVIVMTFGATPMATITEVEAFLEKMAELGKGIVVGVLVKFHAFGVHDFHHFHLGKALAAGKFKKTVKALATKMKANFVHIGIHLNIFEMGHTEAKKTGKLPKSMAGKWNWGDTWKYDAVKKPTVKKMKKWIKLLKAQKFVGLAFLYVDVFYNTQLALGTKKTYTKLHKTLKAHGVIYAIEWGHGFAYKHVFVHWWGFNTYGLGAAKKLDGMKTKDGGKIAMIVGGVKTKGTEKKAGRKYKVTAVLLDVGIWQGFFMDKKLVTALLKYIKTAKKHLTW"
+best_seq = "MSPSLFRRLMKNGQKILVVGLPGWQGYTGRQLLEQGHPVRMFNTRSDPERMKKWLERLNVTDIIMHSAMPFGYSKEEAAEALVEAAQELKNRTLIFVMVKTGPGGHHDFFHLNQAEKAAERMVEAIREGKQTGVVHLMGHVNIGHLDTGKWPWPWQPDPEDPQEYIERSIQHYAKVAKKVMKAAKKVDVDYYVFFYVDTWSGPTIADDPRQRKRFFRSLAEDIEKAGPEHGVIWGIEGGHMLDHLEQMLDSPEMLEQHDVGIMYGAPYFPGYLPDKEESARLIKKLVKKL"
 #best_seq = "MQIKKGKEVVILSRIIMYFGPSPEQFAEQVEKALEALEKLPEKYIIMVLLKGFGGGGHDTFHYKQIKEEQMERAIEAAQALKKQGLDKTVMVGIHVNASEPSPDYQQDPEMKKRWNWGDKPDKEEMREYHRRFMRRAMRALQKRGFKTMVHIYSDVWGNEQLPGQSEEERQEMRKEFKQTGIYVHTEWNMMEGADHTFVHWYWDTSYASEADAKRVIIIGNSSHMERLLKNGKVLLAPFGWQGFALENAKRVLYLP"
 
 varlen = ""
 if use_random_length: varlen = "var"
-varstart = ""
-if use_predef_motif: varstart = "pm"
-if use_predef_start: varstart += "ps"
 experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
-
-if use_predef_motif or use_predef_start: experiment_name += "_" + varstart
 
 ### Constants  ###
 
@@ -167,6 +203,35 @@ AA_PROPERTY_GROUPS = {
     'hydrophobic'   : 'ILVCAGMFYWHKT',
 }
 
+AA_GROUPS = {
+    'negative'      : 'ED',
+    'positive'      : 'HKR',
+    'leu'           : 'L',
+    'ile'           : 'I',
+    'isol'          : 'IL',
+    'val'           : 'V',
+    'ala'           : 'A',
+    'arg'           : 'R',
+    'asn'           : 'N',
+    'asp'           : 'D',
+    'aspn'          : 'ND',
+    'cys'           : 'C',
+    'gln'           : 'Q',
+    'glu'           : 'E',
+    'glun'          : 'GE',
+    'gly'           : 'G',
+    'his'           : 'H',
+    'lys'           : 'K',
+    'met'           : 'M',
+    'phe'           : 'F',
+    'pro'           : 'P',
+    'ser'           : 'S',
+    'thr'           : 'T',
+    'sert'          : 'ST',
+    'trp'           : 'W',
+    'tyr'           : 'Y',
+}
+
 ### Target Amino Acid Distribution ###
 
 
@@ -185,8 +250,25 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
                         0.089042, 0.084882, 0.031276, 0.035995, 0.038211,
                         0.060108, 0.053137, 0.008422, 0.026804, 0.071172])
 # fmt: on
-sequence_restraint_letters = "gyml"
-structure_restraint_letters = "rgmcl"#"rgmcl"
-structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 30 , "c" : 2, "l" : 2 }#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+sequence_restraint_letters = "gml"
+structure_restraint_letters = "rocygm"#"rgmcl"
+structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 10 , "c" : 3, "l" : 2, "o" : 3, "y" : 8}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
 
-motif_placement_mode_dict = {0:'random placement',1:'dynamic',2:'input order', 2.1 : 'input order even spread', 2.2 :'input order, no end overhang', 3 : 'order by group', 4 : 'order by dist', 5 : 'order by C->N dist',  -1 : 'random mode'}
+motif_placement_mode_dict = {
+    0   : 'random placement',
+    1   : 'dynamic',
+    2   : 'input order',
+    2.1 : 'input order even spread',
+    2.2 : 'input order, no end overhang, SD spacing',
+    2.3 : 'input order, no end overhang, random spacing',
+    3   : 'order by group',
+    3.2 : 'order by group, no end overhang, SD spacing',
+    3.3 : 'order by group, no end overhang, random spacing',
+    4   : 'order by dist',
+    5   : 'order by C->N dist',
+    6   : 'rotate order',
+    6.2 : 'rotate order, no end overhang, SD spacing',
+    6.3 : 'rotate order, no end overhang, random spacing',
+    -1  : 'random mode',
+    -3  : 'predefined'
+}
