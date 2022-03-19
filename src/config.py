@@ -36,8 +36,8 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 
 # MCMC schedule:
 MCMC = {}
-MCMC["BETA_START"] = 20  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
-MCMC["N_STEPS"] = 3000  # Number of steps for each MCMC optimization
+MCMC["BETA_START"] = 50  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
+MCMC["N_STEPS"] = 2500  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
 MCMC["MAX"] = 3000
