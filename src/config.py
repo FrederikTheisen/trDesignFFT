@@ -42,7 +42,7 @@ MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
 MCMC["MAX"] = 3000
 MCMC["BAD"] = 0.02
-MCMC["T_LIMIT"] = 0.1 #hours
+MCMC["T_LIMIT"] = 5.9 #hours
 MCMC["T_START"] = datetime.now()
 
 num_simulations = 1000  # Number of sequences to design
