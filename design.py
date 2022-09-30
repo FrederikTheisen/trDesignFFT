@@ -100,86 +100,88 @@ def main():
     # prepare property template
     ########################################################
 
-    with open(cfg.FILE_MSA) as reader:
-        lines = reader.readlines()
-        for line in lines:
-            if len(line) > 10 and line[0:9] == 'BAR_GRAPH':
-                data = line.split('\t')
-                datatype = data[1].strip()
-                if datatype == 'Conservation':
-                    annotations = data[3].split('|')
-                    cfg.TEMPLATE_AA_PROPERTIES = []
-                    #11.0,*,hydrophobic !aliphatic !aromatic !charged !negative !polar !positive !proline !small !tiny,[ffe600]
-                    for a in annotations[:-1]:
-                        dat = a.strip().split(',')
-                        p = []
-                        aas = cfg.ALPHABET_core_str
+    if cfg.FILE_MSA is not None:
+        with open(cfg.FILE_MSA) as reader:
+            lines = reader.readlines()
+            for line in lines:
+                if len(line) > 10 and line[0:9] == 'BAR_GRAPH':
+                    data = line.split('\t')
+                    datatype = data[1].strip()
+                    if datatype == 'Conservation':
+                        annotations = data[3].split('|')
+                        cfg.TEMPLATE_AA_PROPERTIES = []
+                        #11.0,*,hydrophobic !aliphatic !aromatic !charged !negative !polar !positive !proline !small !tiny,[ffe600]
+                        for a in annotations[:-1]:
+                            dat = a.strip().split(',')
+                            p = []
+                            aas = cfg.ALPHABET_core_str
 
-                        if len(dat) == 4:
-                            for g in dat[2].strip().split(' '): p.append(g.strip())
+                            if len(dat) == 4:
+                                for g in dat[2].strip().split(' '): p.append(g.strip())
 
-                            for g in p:
-                                removeiffound = False
-                                group = ""
+                                for g in p:
+                                    removeiffound = False
+                                    group = ""
 
-                                if g[0] == '!':
-                                    removeiffound = True
-                                    group = cfg.AA_PROPERTY_GROUPS[g[1:]]
-                                else: group = cfg.AA_PROPERTY_GROUPS[g]
+                                    if g[0] == '!':
+                                        removeiffound = True
+                                        group = cfg.AA_PROPERTY_GROUPS[g[1:]]
+                                    else: group = cfg.AA_PROPERTY_GROUPS[g]
 
-                                if removeiffound:
-                                    for c in group:
-                                        if c in aas: aas = aas.replace(c,'')
-                                else:
-                                    _aas = aas
-                                    for aa in _aas:
-                                        if aa not in group: aas = aas.replace(aa,'')
-                                if len(aas) == 0: aas = cfg.ALPHABET_core_str
+                                    if removeiffound:
+                                        for c in group:
+                                            if c in aas: aas = aas.replace(c,'')
+                                    else:
+                                        _aas = aas
+                                        for aa in _aas:
+                                            if aa not in group: aas = aas.replace(aa,'')
+                                    if len(aas) == 0: aas = cfg.ALPHABET_core_str
 
-                        for aa in cfg.RM_AA:
-                            if aa in aas: aas = aas.replace(aa,'')
-                        props = []
+                            for aa in cfg.RM_AA:
+                                if aa in aas: aas = aas.replace(aa,'')
+                            props = []
 
-                        for aa in aas: props.append(aa)
+                            for aa in aas: props.append(aa)
 
-                        cfg.TEMPLATE_AA_PROPERTIES.append(props)
-                    print("TEMPLATE_AA_PROPERTIES LENGTH: " + str(len(cfg.TEMPLATE_AA_PROPERTIES)))
-                elif datatype == 'Consensus':
-                    cfg.TEMPLATE_AA_CONSENSUS = []
-                    cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES = []
-                    annotations = data[3].split('|')
-                    for a in annotations[:-1]:
-                        dat = a.strip().split(',')[2]
-                        aas = []
-                        p = []
+                            cfg.TEMPLATE_AA_PROPERTIES.append(props)
+                        print("TEMPLATE_AA_PROPERTIES LENGTH: " + str(len(cfg.TEMPLATE_AA_PROPERTIES)))
+                    elif datatype == 'Consensus':
+                        cfg.TEMPLATE_AA_CONSENSUS = []
+                        cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES = []
+                        annotations = data[3].split('|')
+                        for a in annotations[:-1]:
+                            dat = a.strip().split(',')[2]
+                            aas = []
+                            p = []
 
-                        for g in dat.split(';'):
-                            prob = float(g.strip().split(' ')[1][0:-1])
-                            if prob > 1: #minimum probability
-                                aas.append(g.strip()[0])
-                                p.append(float(g.strip().split(' ')[1][0:-1]))
-                            elif len(aas) == 0:
-                                aas.append(g.strip()[0])
-                                p.append(float(g.strip().split(' ')[1][0:-1]))
+                            for g in dat.split(';'):
+                                prob = float(g.strip().split(' ')[1][0:-1])
+                                if prob > 1: #minimum probability
+                                    aas.append(g.strip()[0])
+                                    p.append(float(g.strip().split(' ')[1][0:-1]))
+                                elif len(aas) == 0:
+                                    aas.append(g.strip()[0])
+                                    p.append(float(g.strip().split(' ')[1][0:-1]))
 
-                        cfg.TEMPLATE_AA_CONSENSUS.append(aas)
-                        cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES.append(p)
+                            cfg.TEMPLATE_AA_CONSENSUS.append(aas)
+                            cfg.TEMPLATE_AA_CONSENSUS_PROBABILITIES.append(p)
 
-                    print("TEMPLATE_AA_CONSENSUS LENGTH:  " + str(len(cfg.TEMPLATE_AA_CONSENSUS)))
+                        print("TEMPLATE_AA_CONSENSUS LENGTH:  " + str(len(cfg.TEMPLATE_AA_CONSENSUS)))
 
-    with open(cfg.FILE_PSSM) as reader:
-        lines = reader.readlines()
-        cfg.PSSM = [0] * cfg.LEN
-        pos = 0
-        for line in lines:
-            if len(line) < 20: continue #too little data to support PSSM, assume empty line
-            data = line.strip().split(' ')
-            weights = []
+    if cfg.FILE_PSSM is not None:
+        with open(cfg.FILE_PSSM) as reader:
+            lines = reader.readlines()
+            cfg.PSSM = [0] * cfg.LEN
+            pos = 0
+            for line in lines:
+                if len(line) < 20: continue #too little data to support PSSM, assume empty line
+                data = line.strip().split(' ')
+                weights = []
 
-            for w in data: weights.append(float(w))
+                for w in data: weights.append(float(w))
 
-            cfg.PSSM[pos] = weights
-            pos += 1
+                cfg.PSSM[pos] = weights
+                pos += 1
 
     ########################################################
     # run MCMC
