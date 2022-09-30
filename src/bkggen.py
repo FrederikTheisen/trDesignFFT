@@ -54,14 +54,6 @@ def plot_distogram(distogram, savepath, title="", clim=None):
     plt.savefig(savepath)
     plt.close("all")
 
-def plot_bkg():
-    bkg = dict(np.load('../backgrounds/background_distributions_256.npz'))
-    seq_L = 150
-    for key in bkg:
-        bkg[key] = bkg[key][:seq_L, :seq_L, :]
-    distogram = distogram_distribution_to_distogram(bkg['dist'],'mean',True)
-    plot_distogram(np.argmax(bkg['dist'][:,:,1:],axis=2),'tst.png','dist')
-
 def get_sequence(L, aas, native_frequencies):
     if native_frequencies is None:
         native_frequencies = [1]*len(aas)
@@ -74,12 +66,19 @@ def get_sequence(L, aas, native_frequencies):
 
     return seq
 
-def generate_bkg(length,n_samples,n_iter,met_first):
+def generate_bkg(length,n_samples,batchsize,met_first,rm_aa):
     met_first = met_first
     L = length
     n_samples = n_samples
+    n_niter = int(n_samples / batchsize)
+    
+    print("Total samples: " + str(n_inter*batchsize))
+    print("Iterations: " + str(n_iter))
 
     aas = list("ARNDCQEGHILKMFPSTWYV")
+    for aa in rm_aa:
+        if aa in aas:
+            aas.remove(aa)
     sequences = []
     backgrounds = {'dist':[], 'omega':[], 'theta':[], 'phi':[]}
 
@@ -91,7 +90,7 @@ def generate_bkg(length,n_samples,n_iter,met_first):
     for j in range(n_iter):
         background = {'dist':[], 'omega':[], 'theta':[], 'phi':[]}
 
-        for i in range(n_samples):
+        for i in range(batchsize):
             print(f"Running iteration {j+1}, sample {i+1} of {n_samples}")
             seq = get_sequence(L, aas, cfg.native_freq)
             if met_first: seq = "M" + seq[1:]
@@ -105,7 +104,7 @@ def generate_bkg(length,n_samples,n_iter,met_first):
             background['omega'].append(np.squeeze(output['omega']))
             background['phi'].append(np.squeeze(output['phi']))
 
-        print("Averaging iteration results...")
+        print("Averaging batch results...")
         for key in background.keys():
             print(key + "...")
             background[key] = torch.tensor(background[key])
@@ -113,16 +112,15 @@ def generate_bkg(length,n_samples,n_iter,met_first):
             backgrounds[key].append(background[key])
         print("Averaging done")
         runtime = time.time() - startime
-        completed = (j+1)*(i+1)
-        total = n_iter*n_samples
-        waiting = total - completed
-        progress = completed / total
+        completed = (j+1)*batchsize
+        waiting = n_samples - completed
+        progress = completed / n_samples
         dt_sample = runtime/completed
 
         print(f"Expected finish in {dt_sample*waiting} seconds")
 
 
-    print("Averaging all iterations...")
+    print("Averaging all batches...")
     for key in background.keys():
         print(key + "...")
         backgrounds[key] = np.mean(backgrounds[key], axis=0)
@@ -150,9 +148,16 @@ def check_bkg(length):
 def main():
     L = 290
 
-    generate_bkg(length=L, n_samples=100, n_iter = 50, met_first=True)
-
-    check_bkg(L)
+    #Generates background
+    #L is background size. Larger L requires reduction of batchsize, depending on memory.
+    #samples is the total number of sequences sampled for the bkg
+    #batchsize is the number of sequences in each batch before memory is cleared
+    #met_first, if true, first residue is Met
+    #rm_aa is disallowed amino acids
+    generate_bkg(length=L, n_samples=5000, batchsize = 50, met_first=True, rm_aa='C')
+    
+    #plots selected background distance probabilities
+    #check_bkg(L)
 
 
 class NN(torch.nn.Module):
