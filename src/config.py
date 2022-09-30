@@ -197,7 +197,7 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
 # fmt: on
 sequence_restraint_letters = "gml"
 structure_restraint_letters = "rocygm"#"rgmcl"
-structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 10 , "c" : 4, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+structure_restraint_mask_values = { "r" : 1, "g" : 5, "m" : 10 , "c" : 5, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
 
 motif_placement_mode_dict = {
     0   : 'random placement',
