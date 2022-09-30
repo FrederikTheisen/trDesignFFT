@@ -1168,14 +1168,6 @@ class MCMC_Optimizer(torch.nn.Module):
                     )
                     print(f"\n--- Current best:\n{self.best_sequence}")
 
-                    if self.timelimited:
-                        design_runtime = datetime.now() - self.design_starttime
-                        if design_runtime.seconds/3600 > self.design_t_limit: 
-                            terminate_run = True
-                            print("Time limit reached, breaking run...")
-                            break
-
-
             ### HANDLE CONTROL.TXT INPUT ###
             try:
                 if (1 + self.step) % (cfg.report_interval//2) == 0:
@@ -1240,6 +1232,13 @@ class MCMC_Optimizer(torch.nn.Module):
 
             if self.step % self.M == 0 and self.step != 0:
                 seq, motifs = self.fixup_MCMC(seq, motifs)
+
+            if self.timelimited:
+                design_runtime = datetime.now() - self.design_starttime
+                if design_runtime.seconds/3600 > self.design_t_limit: 
+                    terminate_run = True
+                    print("Time limit reached, breaking run...")
+                    break
 
             misctime += time.time() - misc_start
 
