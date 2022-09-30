@@ -290,14 +290,18 @@ class MCMC_Optimizer(torch.nn.Module):
         print(sequence_constraint)
 
         # Setup MCMC params:
-        self.beta, self.N, self.coef, self.M, self.MaxM, self.badF = (
+        self.beta, self.N, self.coef, self.M, self.MaxM, self.badF, self.design_t_limit, self.design_starttime  = (
             MCMC["BETA_START"],
             MCMC["N_STEPS"],
             MCMC["COEF"],
             MCMC["M"],
             MCMC["MAX"],
             MCMC["BAD"],
+            MCMC["T_LIMIT"],
+            MCMC["T_START"],
         )
+        self.timelimited = self.design_t_limit > 0
+
         self.aa_weight = aa_weight
 
         # Setup sequence constraints:
@@ -734,6 +738,8 @@ class MCMC_Optimizer(torch.nn.Module):
         ### NON MATRIX MODE ###
         else: seq_curr[0, idx] = np.random.choice(self.aa_valid)
 
+        #################################
+        ### CONTROL.TXT mut injection ###
         if self.mutation_injection is not None:
             mut = self.mutation_injection
             _idx = mut[1]
@@ -756,7 +762,7 @@ class MCMC_Optimizer(torch.nn.Module):
             self.report_result = False
             return self.mutate(seq, skipweight = True)
 
-        #Check if mutating already change residue and store mutation information
+        #Check if mutating already change residue and store mutation information. Probably some recursive stuff...
         for m in self.current_mutations:
             if m[0] == idx:
                 return seq
@@ -1015,6 +1021,8 @@ class MCMC_Optimizer(torch.nn.Module):
         scoretime = 0
         misctime = 0
 
+        terminate_run = False
+
         # initialize with given input sequence
         print("Initial seq: ", start_seq)
         seq = aa2idx(start_seq).copy().reshape([1, self.seq_L])
@@ -1051,12 +1059,12 @@ class MCMC_Optimizer(torch.nn.Module):
         # Main loop:
         for self.step in range(self.N + 1):
 
-            # random mutation at random position, also fix sequence constraint
+            # random mutation at random position
             mut_start = time.time()
             if self.step > 0:
                 seq_curr = seq
                 motifs_curr = mcopy(motifs)
-                if cfg.DYNAMIC_MOTIF_PLACEMENT and random.random() < 1/(self.step**0.5):
+                if cfg.DYNAMIC_MOTIF_PLACEMENT and random.random() < 1/(self.step**0.5): #Move motif? not so often later in mcmc
                     motifs_curr, seq_curr = self.mutate_motifs(motifs_curr, seq_curr, replacementmode=random.choices([1,2])[0])
                 elif cfg.OPTIMIZER is not None and 'gd' in cfg.OPTIMIZER:
                     for _ in range(10): seq_curr = self.mutate_gd(seq_curr)
@@ -1065,7 +1073,7 @@ class MCMC_Optimizer(torch.nn.Module):
                     niter = args[0]
                     if len(args) > 1 and self.step > args[1]: niter = 1
                     for _ in range(niter): seq_curr = self.mutate(seq_curr)
-                else: seq_curr = self.mutate(seq)
+                else: seq_curr = self.mutate(seq) #default mutation mode
 
                 if cfg.OPTIMIZER is not None and 'start' in cfg.OPTIMIZER:
                     if self.step > 4*self.seq_L: cfg.OPTIMIZER = 'none'
@@ -1160,6 +1168,15 @@ class MCMC_Optimizer(torch.nn.Module):
                     )
                     print(f"\n--- Current best:\n{self.best_sequence}")
 
+                    if self.timelimited:
+                        design_runtime = datetime.now() - self.design_starttime
+                        if design_runtime.total_hours() > self.design_t_limit: 
+                            terminate_run = True
+                            print("Time limit reached, breaking run...")
+                            break
+
+
+            ### HANDLE CONTROL.TXT INPUT ###
             try:
                 if (1 + self.step) % (cfg.report_interval//2) == 0:
                     with open('control.txt', 'r') as reader:
@@ -1226,6 +1243,9 @@ class MCMC_Optimizer(torch.nn.Module):
 
             misctime += time.time() - misc_start
 
+
+                
+
         ########################################
 
         # Save final results before exiting:
@@ -1260,4 +1280,4 @@ class MCMC_Optimizer(torch.nn.Module):
                 f.write(f"{mut}\n")
 
 
-        return self.best_metrics
+        return self.best_metrics, terminate_run

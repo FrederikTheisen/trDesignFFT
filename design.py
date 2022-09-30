@@ -212,6 +212,8 @@ def main():
                 print("CMD DESIGN END")
                 break
 
+        
+
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
             cfg.LEN = np.random.randint(mlen, maxseqlen)
 
@@ -287,7 +289,7 @@ def main():
         if cfg.first_residue_met:
             start_seq = "M" + start_seq[1:]
 
-        metrics = mcmc_optim.run(start_seq)
+        metrics, terminate_run = mcmc_optim.run(start_seq)
 
         metrics["FOLDER"] = str(mcmc_optim.folder)
         metrics["USE_WEIGHTED_IDX"] = str(cfg.USE_WEIGHTED_IDX)
@@ -296,6 +298,8 @@ def main():
         metrics["OPTIMIZER"] = str(optim)
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
+
+        if terminate_run: break
 
     output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics" + ".csv"
 
