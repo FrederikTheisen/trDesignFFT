@@ -1170,7 +1170,7 @@ class MCMC_Optimizer(torch.nn.Module):
 
                     if self.timelimited:
                         design_runtime = datetime.now() - self.design_starttime
-                        if design_runtime.hours() > self.design_t_limit: 
+                        if design_runtime.hours > self.design_t_limit: 
                             terminate_run = True
                             print("Time limit reached, breaking run...")
                             break
