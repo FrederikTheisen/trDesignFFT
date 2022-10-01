@@ -8,14 +8,14 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 290  # sequence length
+LEN = 270  # sequence length
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
-TEMPLATE = False
+TEMPLATE = True
 TEMPLATE_MODE = 'motifs' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
@@ -37,7 +37,7 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 # MCMC schedule:
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
-MCMC["N_STEPS"] = 5000  # Number of steps for each MCMC optimization
+MCMC["N_STEPS"] = 50000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
 MCMC["MAX"] = 3000
@@ -58,7 +58,7 @@ target_motif_path = 'AP.npz'
 use_motifs = True
 use_sites = False
 motif_placement_mode = 2.3 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
-use_random_length = True #uses random protein length between length of motifs and the specified LEN
+use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
 motif_weight_max = 1 #min weight is 1
 first_residue_met = True
