@@ -189,17 +189,11 @@ def main():
     maxseqlen = cfg.LEN
     use_random_motif_mode = cfg.motif_placement_mode == -1
 
-    if cfg.use_predef_start:
-        print("Using predefiend starting point")
-        motifs = cfg.motifs
-        cfg.sequence_constraint = cfg.best_seq
-        cfg.motif_placement_mode = -2
-        cfg.LEN = len(cfg.best_seq)
-        cfg.MCMC["BETA_START"] = 200
-    elif cfg.use_predef_motif:
-        print("Using predefiend motifs")
-        motifs = cfg.motifs
-        cfg.motif_placement_mode = -3
+    #if cfg.use_predef_start:
+        #print("Using predefined starting point")
+        #cfg.sequence_constraint = cfg.best_seq
+        #cfg.LEN = len(cfg.best_seq)
+        #cfg.MCMC["BETA_START"] = 200
 
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
@@ -233,6 +227,7 @@ def main():
 
         if cfg.PREDEFINED_MOTIFS:
             motifs = random.choice(cfg.mmotifs)
+            cfg.motif_placement_mode = -3
 
         print("INFO")
         print("  LENGTH:   " + str(cfg.LEN))
@@ -270,9 +265,7 @@ def main():
 
         start_seq = get_sequence(i, cfg.LEN, aa_valid, seed_file=cfg.seed_filepath)
 
-        if cfg.use_predef_start:
-            start_seq = cfg.best_seq
-        elif cfg.TEMPLATE:
+        if cfg.TEMPLATE:
             if 'msa' in cfg.TEMPLATE_MODE:
                 consensus_sequence = ""
                 for i in range(cfg.LEN):

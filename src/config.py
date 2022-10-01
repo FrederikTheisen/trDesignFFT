@@ -70,12 +70,7 @@ sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARN
 motif_constraint = '''------------------------------------rrcccrmrr--------------------------rrrrrr---------------gmccccrrr----------------------rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr------------------------------------------------------------------------------------------------------------------------------------------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr---------------------------------------rmrrrrrrrrr-------------rrrrrrrrrrrr--'''.replace('\n','')
 motif_position =   '''----------------------------------111111111111111111111----------------111111------11111111111111111111------------------1111111111111111111111111111111111111111111111111111111111111--------------------------------------------------------------------------------------------------------111111111111111111111111111111111111111111111111111111111111111111111111111111111------------------------------11111111111111111111111111111111111111111--'''.replace('\n','')
 
-
-
-#predefined start parameters
-use_predef_motif = PREDEFINED_MOTIFS
-motifs = [[288, 389, 102, '-occcccoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgcg--', 1, 0, 101], [406, 426, 21, '---gmcmcccccoo-------', 1, 106, 124], [428, 489, 62, '-----------------occgcmgccgcgo--------------------occcmgccc---', 1, 132, 193], [491, 520, 30, '--ccmgcccccgcccooor-----------', 1, 199, 228], [531, 579, 49, '----------------roooccmgco-----------------------', 1, 241, 289]]
-
+#predefined start motifs
 mmotifs = [
 [[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
 ]
