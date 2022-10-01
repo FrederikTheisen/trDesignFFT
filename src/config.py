@@ -15,7 +15,7 @@ RM_AA = "C"  # comma-separated list of specific amino acids to disable from bein
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
-TEMPLATE = True
+TEMPLATE = False
 TEMPLATE_MODE = 'predefined' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
@@ -80,11 +80,7 @@ mmotifs = [
 [[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
 ]
 
-
-use_predef_start = False
-
 best_seq = "MAVILVFIDMGSFKRYKQRYPEFYKQARKRGMSYYGHDSWGLGWALAEFVLELLKKSNLTVIPDYQEKGKPVIIVDPGKGGDWTHMILPRVFGHRTDSSPWHQKYHAKLRKVLQQKGIKPLNVRRYNDDDTPEQRAKRLIELAKSGPVVILIEGHAYDKYWHNGDKKKSDRHMEEAVEVLRAVAEAISKEKQVYTLIIGDHGFSYSPRQMKSLVDNGHVKLLIFNRSHHPDMWMVKLVSPDARIVDTPEVFARFVELAIRRL"
-#best_seq = "MQIKKGKEVVILSRIIMYFGPSPEQFAEQVEKALEALEKLPEKYIIMVLLKGFGGGGHDTFHYKQIKEEQMERAIEAAQALKKQGLDKTVMVGIHVNASEPSPDYQQDPEMKKRWNWGDKPDKEEMREYHRRFMRRAMRALQKRGFKTMVHIYSDVWGNEQLPGQSEEERQEMRKEFKQTGIYVHTEWNMMEGADHTFVHWYWDTSYASEADAKRVIIIGNSSHMERLLKNGKVLLAPFGWQGFALENAKRVLYLP"
 
 varlen = ""
 if use_random_length: varlen = "var"
