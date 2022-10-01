@@ -22,7 +22,7 @@ OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 FILE_MSA = None
-DYNAMIC_MOTIF_PLACEMENT = True
+DYNAMIC_MOTIF_PLACEMENT = False
 PREDEFINED_MOTIFS = True
 
 BACKGROUND = True
