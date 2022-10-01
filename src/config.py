@@ -8,7 +8,7 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 270  # sequence length
+LEN = 262  # sequence length
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
@@ -16,14 +16,14 @@ n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
 TEMPLATE = True
-TEMPLATE_MODE = 'motifs' #msa, motifs, predefined
+TEMPLATE_MODE = 'predefined' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 FILE_MSA = None
 DYNAMIC_MOTIF_PLACEMENT = False
-PREDEFINED_MOTIFS = False
+PREDEFINED_MOTIFS = True
 
 BACKGROUND = True
 
@@ -77,12 +77,13 @@ use_predef_motif = PREDEFINED_MOTIFS
 motifs = [[288, 389, 102, '-occcccoroooccgcgc-------------------------oocccmcorrocmmccmc--------------------------oocccmcmccgcg--', 1, 0, 101], [406, 426, 21, '---gmcmcccccoo-------', 1, 106, 124], [428, 489, 62, '-----------------occgcmgccgcgo--------------------occcmgccc---', 1, 132, 193], [491, 520, 30, '--ccmgcccccgcccooor-----------', 1, 199, 228], [531, 579, 49, '----------------roooccmgco-----------------------', 1, 241, 289]]
 
 mmotifs = [
-[[532, 579, 48, '-------------rrrcccccmgccrrrrrrrrrrrrrr---------', 0, 2, 49], [285, 306, 22, '---rrrrrrrrrcccccgcgcr', 0, 51, 72], [313, 352, 40, '-------------rrrrrcccccmcrrrrcmgccmcrrr-', 0, 76, 115], [360, 389, 30, '-------rrrrrrrrcccccmcmccccr--', 0, 119, 148], [409, 427, 19, '-mcmrrrrrrrrrrr----', 0, 149, 167], [433, 459, 27, '------rrrrrrrccggmccccccrrr', 0, 180, 206], [465, 488, 24, '---------rrrrcccgmccrrr-', 0, 219, 242], [491, 520, 30, '-rcccccccccmccc---------------', 0, 260, 289]]]
+[[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
+]
 
 
 use_predef_start = False
 
-best_seq = "MSPSLFRRLMKNGQKILVVGLPGWQGYTGRQLLEQGHPVRMFNTRSDPERMKKWLERLNVTDIIMHSAMPFGYSKEEAAEALVEAAQELKNRTLIFVMVKTGPGGHHDFFHLNQAEKAAERMVEAIREGKQTGVVHLMGHVNIGHLDTGKWPWPWQPDPEDPQEYIERSIQHYAKVAKKVMKAAKKVDVDYYVFFYVDTWSGPTIADDPRQRKRFFRSLAEDIEKAGPEHGVIWGIEGGHMLDHLEQMLDSPEMLEQHDVGIMYGAPYFPGYLPDKEESARLIKKLVKKL"
+best_seq = "MAVILVFIDMGSFKRYKQRYPEFYKQARKRGMSYYGHDSWGLGWALAEFVLELLKKSNLTVIPDYQEKGKPVIIVDPGKGGDWTHMILPRVFGHRTDSSPWHQKYHAKLRKVLQQKGIKPLNVRRYNDDDTPEQRAKRLIELAKSGPVVILIEGHAYDKYWHNGDKKKSDRHMEEAVEVLRAVAEAISKEKQVYTLIIGDHGFSYSPRQMKSLVDNGHVKLLIFNRSHHPDMWMVKLVSPDARIVDTPEVFARFVELAIRRL"
 #best_seq = "MQIKKGKEVVILSRIIMYFGPSPEQFAEQVEKALEALEKLPEKYIIMVLLKGFGGGGHDTFHYKQIKEEQMERAIEAAQALKKQGLDKTVMVGIHVNASEPSPDYQQDPEMKKRWNWGDKPDKEEMREYHRRFMRRAMRALQKRGFKTMVHIYSDVWGNEQLPGQSEEERQEMRKEFKQTGIYVHTEWNMMEGADHTFVHWYWDTSYASEADAKRVIIIGNSSHMERLLKNGKVLLAPFGWQGFALENAKRVLYLP"
 
 varlen = ""
@@ -197,7 +198,7 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
 # fmt: on
 sequence_restraint_letters = "gml"
 structure_restraint_letters = "rocygm"#"rgmcl"
-structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 10 , "c" : 4, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 12 , "c" : 4, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
 
 motif_placement_mode_dict = {
     0   : 'random placement',
