@@ -15,7 +15,7 @@ RM_AA = "C"  # comma-separated list of specific amino acids to disable from bein
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
-TEMPLATE = False
+TEMPLATE = True
 TEMPLATE_MODE = 'predefined' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
@@ -36,7 +36,7 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 
 # MCMC schedule:
 MCMC = {}
-MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
+MCMC["BETA_START"] = 300  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
 MCMC["N_STEPS"] = 5000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
