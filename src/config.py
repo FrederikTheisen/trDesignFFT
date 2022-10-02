@@ -18,7 +18,7 @@ report_interval = 120 #seconds
 TEMPLATE = True
 TEMPLATE_MODE = 'msa' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
-OPTIMIZER = None #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
+OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 FILE_MSA = "msa_20221001_071937.txt"
