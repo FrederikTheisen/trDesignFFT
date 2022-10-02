@@ -18,7 +18,7 @@ report_interval = 120 #seconds
 TEMPLATE = True
 TEMPLATE_MODE = 'msa' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
-OPTIMIZER = 'msa_start' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
+OPTIMIZER = None #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 FILE_MSA = "msa_20221001_071937.txt"
@@ -189,7 +189,7 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
 # fmt: on
 sequence_restraint_letters = "gml"
 structure_restraint_letters = "rocygm"#"rgmcl"
-structure_restraint_mask_values = { "r" : 1, "g" : 4, "m" : 12 , "c" : 4, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+structure_restraint_mask_values = { "r" : 2, "g" : 5, "m" : 12 , "c" : 5, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
 
 motif_placement_mode_dict = {
     0   : 'random placement',
