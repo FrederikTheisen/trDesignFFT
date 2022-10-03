@@ -36,7 +36,7 @@ if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
 
 # MCMC schedule:
 MCMC = {}
-MCMC["BETA_START"] = 100  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
+MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
 MCMC["N_STEPS"] = 5000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
@@ -67,9 +67,8 @@ PSSM = None
 # keep certain positions at specific residues (e.g., "---A---C---")
 #290 residue motif
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
-motif_constraint = '''------------------------------------rrccyymyy--------------------------rrrrrr---------------gmyyccrrr----------------------rrrrrrrrrrrcccccc--rygymyyccrrrryymy------------------------------------------------------------------------------------------------------------------------------------------------------ccyymmyyymgyymyyccccccrrrrrrrrrrrrrrrrrrrrrrrrrccyymmy---------------------------------------ymyyrrrrrrr-------------rrrrrrrrrrrr--'''.replace('\n','')
-motif_position =   '''----------------------------------111111111111111111111----------------111111------11111111111111111111------------------1111111111111111111111111111111111111111111111111111111111111--------------------------------------------------------------------------------------------------------111111111111111111111111111111111111111111111111111111111111111111111111111111111------------------------------11111111111111111111111111111111111111111--'''.replace('\n','')
-
+motif_constraint = '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
+motif_position =   '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1-1--11--1-------------------------------------11-1---------------------------------------1------------------------------------'''.replace('\n','')
 #predefined start motifs
 mmotifs = [
 [[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
