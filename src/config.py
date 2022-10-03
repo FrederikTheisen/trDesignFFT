@@ -67,7 +67,7 @@ PSSM = None
 # keep certain positions at specific residues (e.g., "---A---C---")
 #290 residue motif
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
-motif_constraint = '''------------------------------------rrcccrmrr--------------------------rrrrrr---------------gmccccrrr----------------------rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr------------------------------------------------------------------------------------------------------------------------------------------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr---------------------------------------rmrrrrrrrrr-------------rrrrrrrrrrrr--'''.replace('\n','')
+motif_constraint = '''------------------------------------rrccyymyy--------------------------rrrrrr---------------gmyyccrrr----------------------rrrrrrrrrrrcccccc--rygymyyccrrrryymy------------------------------------------------------------------------------------------------------------------------------------------------------ccyymmyyymgyymyyccccccrrrrrrrrrrrrrrrrrrrrrrrrrccyymmy---------------------------------------ymyyrrrrrrr-------------rrrrrrrrrrrr--'''.replace('\n','')
 motif_position =   '''----------------------------------111111111111111111111----------------111111------11111111111111111111------------------1111111111111111111111111111111111111111111111111111111111111--------------------------------------------------------------------------------------------------------111111111111111111111111111111111111111111111111111111111111111111111111111111111------------------------------11111111111111111111111111111111111111111--'''.replace('\n','')
 
 #predefined start motifs
@@ -187,9 +187,9 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
                         0.089042, 0.084882, 0.031276, 0.035995, 0.038211,
                         0.060108, 0.053137, 0.008422, 0.026804, 0.071172])
 # fmt: on
-sequence_restraint_letters = "gml"
-structure_restraint_letters = "rocygm"#"rgmcl"
-structure_restraint_mask_values = { "r" : 2, "g" : 5, "m" : 12 , "c" : 5, "l" : 2, "o" : 3, "y" : 3}#{ "r" : 1, "g" : 6, "m" : 11 , "c" : 5, "l" : 2 }
+sequence_restraint_letters = "mg"
+structure_restraint_letters = "mygcr"
+structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2} 
 
 motif_placement_mode_dict = {
     0   : 'random placement',
