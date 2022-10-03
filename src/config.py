@@ -8,21 +8,21 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 245  # sequence length
+LEN = 170  # sequence length
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
-TEMPLATE = True
+TEMPLATE = False
 TEMPLATE_MODE = 'motifs' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
-FILE_MSA = "msa_20221001_071937.txt"
-DYNAMIC_MOTIF_PLACEMENT = False
+FILE_MSA = None
+DYNAMIC_MOTIF_PLACEMENT = True
 PREDEFINED_MOTIFS = False
 
 BACKGROUND = True
@@ -57,18 +57,20 @@ target_motif_path = 'AP.npz'
 
 use_motifs = True
 use_sites = False
-motif_placement_mode = 2.3 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
+motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
-motif_weight_max = 1 #min weight is 1
+motif_weight_max = 10 #min weight is 1
 first_residue_met = True
 PSSM = None
 
 # keep certain positions at specific residues (e.g., "---A---C---")
 #290 residue motif
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
-motif_constraint = '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
-motif_position =   '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1-1--11--1-------------------------------------11-1---------------------------------------1------------------------------------'''.replace('\n','')
+motif_constraint =    '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
+motif_position =      '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1111111111-------------------------------------1111---------------------------------------1------------------------------------'''.replace('\n','')
+
+
 #predefined start motifs
 mmotifs = [
 [[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
