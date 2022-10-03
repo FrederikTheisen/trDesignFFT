@@ -8,7 +8,7 @@ from datetime import datetime
 # Set a random seed?
 # np.random.seed(seed=1234)
 
-LEN = 262  # sequence length
+LEN = 245  # sequence length
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
@@ -16,14 +16,14 @@ n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
 TEMPLATE = True
-TEMPLATE_MODE = 'msa' #msa, motifs, predefined
+TEMPLATE_MODE = 'predefined' #msa, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 FILE_MSA = "msa_20221001_071937.txt"
 DYNAMIC_MOTIF_PLACEMENT = False
-PREDEFINED_MOTIFS = True
+PREDEFINED_MOTIFS = False
 
 BACKGROUND = True
 
