@@ -11,9 +11,6 @@ USE_PREDEFINED_START = False
 
 LEN = 170  # sequence length
 USE_RANDOM_LENGTH = False  #uses random protein length between length of motifs and the specified LEN
-AA_WEIGHT = 1  # weight for the AA composition biasing loss term
-BKG_WEIGHT = 1 # weight for background loss
-MTF_WEIGHT = 1
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 FIRST_RESIDUE_MET = True
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
@@ -21,42 +18,48 @@ report_interval = 120 #seconds
 
 TEMPLATE = False
 TEMPLATE_MODE = 'motifs' #msa, msa_argmax, motifs, predefined
-USE_WEIGHTED_IDX = False #good, reciprocal, tm
-OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
-FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
-FILE_PSSM = None
 FILE_MSA = None
+
+USE_WEIGHTED_IDX = False #good, reciprocal, tm
+
+### OPTIMIZER ###
+#Selects mutations based on various properties.
+#msa and conprob are MSA based. msa is based on jalview residue properties. conprob is based on probabilities
+#pssm reads a an msa with scores for each position and each amino acid. mutations are selected based on score
+#matrix uses substitution matrix and will decide mutation based on previous delta score
+#can include _niter_X_Y which will do X mutations for Y steps and then 1 mutation every step 
+#can include '_start' which will change the mode to 'none' after 4xLEN steps
+OPTIMIZER = 'none' #MUST be string. Options: none, gd, gd_pssm, msa, pssm, conprob, matrix, _niter_X[_Y], _start
+FILE_MATRIX = 'blosum62.txt' #Options: blosum62, pepstruc, fft_290_nobkg
+FILE_PSSM = None
+
 DYNAMIC_MOTIF_PLACEMENT = True
 PREDEFINED_MOTIFS = False
 
 ### LOSS FUNCTIONS ###
 BACKGROUND = True #Background loss function, designs folded protein
+BKG_WEIGHT = 1 # weight for background loss
 MOTIFS = True #Motif loss, design target motif
-SITE = False #Designs pocket defined by m restraints, repulsive loss function 
+MTF_WEIGHT = 1
+SITE = False #Designs pocket defined by m restraints, repulsive loss function
+AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 
-# MCMC schedule:
+### MCMC schedule ###
 MCMC = {}
 MCMC["BETA_START"] = 25  # Energy multiplier for the metropolis criterion, higher value -> less likely to accept bad mutation
 MCMC["N_STEPS"] = 5000  # Number of steps for each MCMC optimization
 MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
-MCMC["MAX"] = 3000
-MCMC["BAD"] = 0.02
-MCMC["T_LIMIT"] = 5.9 #hours
-MCMC["T_START"] = datetime.now()
-
-num_simulations = 1000  # Number of sequences to design
-
-# seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
-seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
+MCMC["MAX"] = 3000 #Maximum BETA value
+MCMC["BAD"] = 0.02 #Minimum fraction of bad mutation accepted. If fewer are accepted, then BETA is descreased (default 0.05)
+MCMC["T_LIMIT"] = 5.9 #Time limit for supercomputer computation scheduling. 
 
 # Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 # target_motif_path = 'target_motifs/target.npz'
 target_motif_path = 'AP.npz'
 
 
-use_motifs = MOTIFS
-use_sites = SITE #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
+
 motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_motif_weight = False
 
@@ -91,6 +94,10 @@ if USE_PREDEFINED_START:
 ### Below are things that should not be touched ###
 ###################################################
 
+# seed_filepath = "trdesign-seeds.txt" # Optionally, start from a .txt file with sequences
+seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting sequences 100% at random
+num_simulations = 1000  # Number of sequences to design
+
 #MISC setup
 varlen = ""
 if use_random_length: varlen = "var"
@@ -100,6 +107,9 @@ use_random_length = USE_RANDOM_LENGTH
 motif_weight_max = MTF_WEIGHT
 first_residue_met = FIRST_RESIDUE_MET
 PSSM = None
+MCMC["T_START"] = datetime.now()
+use_motifs = MOTIFS
+use_sites = SITE #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
 
 ### Constants  ###
 # These settings are specific to the trRosetta Model implementation
