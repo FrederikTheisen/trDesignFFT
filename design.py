@@ -189,12 +189,6 @@ def main():
     maxseqlen = cfg.LEN
     use_random_motif_mode = cfg.motif_placement_mode == -1
 
-    #if cfg.use_predef_start:
-        #print("Using predefined starting point")
-        #cfg.sequence_constraint = cfg.best_seq
-        #cfg.LEN = len(cfg.best_seq)
-        #cfg.MCMC["BETA_START"] = 200
-
     seqs, seq_metrics = [], []
     for i in range(cfg.num_simulations):
         print("#####################################")
@@ -214,7 +208,7 @@ def main():
         if use_random_motif_mode:
             cfg.motif_placement_mode = np.random.randint(0,6)
 
-        #if i > 0:
+        #if i > 0: #uncomment to enable some randomness in each run
             #cfg.motif_placement_mode = random.choice([3.3,4])
             #cfg.TEMPLATE = random.choice([True, False])
             #cfg.TEMPLATE_MODE = random.choice(['predefined','msa'])

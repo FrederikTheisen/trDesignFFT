@@ -4,6 +4,10 @@ import numpy as np
 from datetime import datetime
 
 ### Design Config ###
+# Predefined start requires mmotifs and best_seq properties to be set
+# Will pull LEN, sequence constraint from best_seq
+# Will take dist restraints from motif file (.npz)
+USE_PREDEFINED_START = False
 
 # Set a random seed?
 # np.random.seed(seed=1234)
@@ -56,7 +60,7 @@ target_motif_path = 'AP.npz'
 
 
 use_motifs = True
-use_sites = False
+use_sites = False #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
 motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
@@ -64,12 +68,10 @@ motif_weight_max = 10 #min weight is 1
 first_residue_met = True
 PSSM = None
 
-# keep certain positions at specific residues (e.g., "---A---C---")
-#290 residue motif
+# Restraint map generated from pymol script
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
 motif_constraint =    '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
 motif_position =      '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1111111111-------------------------------------1111---------------------------------------1------------------------------------'''.replace('\n','')
-
 
 #predefined start motifs
 mmotifs = [
@@ -78,12 +80,29 @@ mmotifs = [
 
 best_seq = "MAVILVFIDMGSFKRYKQRYPEFYKQARKRGMSYYGHDSWGLGWALAEFVLELLKKSNLTVIPDYQEKGKPVIIVDPGKGGDWTHMILPRVFGHRTDSSPWHQKYHAKLRKVLQQKGIKPLNVRRYNDDDTPEQRAKRLIELAKSGPVVILIEGHAYDKYWHNGDKKKSDRHMEEAVEVLRAVAEAISKEKQVYTLIIGDHGFSYSPRQMKSLVDNGHVKLLIFNRSHHPDMWMVKLVSPDARIVDTPEVFARFVELAIRRL"
 
+sequence_restraint_letters = "mg"
+structure_restraint_letters = "mygcr"
+structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2} 
+
+
+#Setup predefined start 
+if USE_PREDEFINED_START:
+    TEMPLATE = True
+    TEMPLATE_MODE = 'predefined'
+    PREDEFINED_MOTIFS = True
+    LEN = len(best_seq)
+    MCMC["BETA_START"] = 200
+
+###################################################
+### Below are thinks that should not be touched ###
+###################################################
+
+#MISC setup
 varlen = ""
 if use_random_length: varlen = "var"
 experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
 
 ### Constants  ###
-
 # These settings are specific to the trRosetta Model implementation
 # (might need to change for AF2)
 limits = {
@@ -188,9 +207,6 @@ native_freq = np.array([0.075905, 0.070035, 0.039181, 0.045862, 0.023332,
                         0.089042, 0.084882, 0.031276, 0.035995, 0.038211,
                         0.060108, 0.053137, 0.008422, 0.026804, 0.071172])
 # fmt: on
-sequence_restraint_letters = "mg"
-structure_restraint_letters = "mygcr"
-structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2} 
 
 motif_placement_mode_dict = {
     0   : 'random placement',
