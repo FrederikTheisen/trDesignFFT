@@ -13,13 +13,18 @@ LEN = 170  # sequence length
 USE_RANDOM_LENGTH = False  #uses random protein length between length of motifs and the specified LEN
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 FIRST_RESIDUE_MET = True
-n_models = 5  # How many structure prediction models to ensemble? [1-5]
+n_models = 5  # How many structure prediction models to ensemble? [1-5] (prediction quality vs speed)
 report_interval = 120 #seconds
 
+### TEMPLATE ###
+#start sequence options. argmax is the most common residue from MSA. predefiend uses the 'best_seq' input
 TEMPLATE = False
 TEMPLATE_MODE = 'motifs' #msa, msa_argmax, motifs, predefined
 FILE_MSA = None
 
+### MUTATION POSITION ###
+#good = keeps mutating same region until mutations are bad, reciprocal = aims to mutate uniformly, tm = not implemented
+#reciprocal works good with dynamic motifs. dont use 'good'
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 
 ### OPTIMIZER ###
@@ -33,8 +38,13 @@ OPTIMIZER = 'none' #MUST be string. Options: none, gd, gd_pssm, msa, pssm, conpr
 FILE_MATRIX = 'blosum62.txt' #Options: blosum62, pepstruc, fft_290_nobkg
 FILE_PSSM = None
 
+### MOTIFS ###
+# 0 = random position, 2 = input order, 3 = order by group, 5 = order by C->N distance
+# .1 = even distance, .2 = first and last motif are terminal, spacing is mean + sd, .3 = first and last motif are terminal, random spacing
+MOTIF_PLACEMENT_MODE = 0
 DYNAMIC_MOTIF_PLACEMENT = True
 PREDEFINED_MOTIFS = False
+target_motif_path = 'AP.npz' # .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 
 ### LOSS FUNCTIONS ###
 BACKGROUND = True #Background loss function, designs folded protein
@@ -54,21 +64,10 @@ MCMC["MAX"] = 3000 #Maximum BETA value
 MCMC["BAD"] = 0.02 #Minimum fraction of bad mutation accepted. If fewer are accepted, then BETA is descreased (default 0.05)
 MCMC["T_LIMIT"] = 5.9 #Time limit for supercomputer computation scheduling. 
 
-# Constraint can be specified as an .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
-# target_motif_path = 'target_motifs/target.npz'
-target_motif_path = 'AP.npz'
-
-
-
-motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
-use_random_motif_weight = False
-
-
 # Restraint map generated from pymol script
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
 motif_constraint =    '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
 motif_position =      '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1111111111-------------------------------------1111---------------------------------------1------------------------------------'''.replace('\n','')
-
 
 #predefined start motifs (list of motif combinations [[[m1],[m2],[m3]],[[m1],[m2],[m3]]])
 mmotifs = [
@@ -110,6 +109,8 @@ PSSM = None
 MCMC["T_START"] = datetime.now()
 use_motifs = MOTIFS
 use_sites = SITE #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
+motif_placement_mode = MOTIF_PLACEMENT_MODE #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
+use_random_motif_weight = False
 
 ### Constants  ###
 # These settings are specific to the trRosetta Model implementation
