@@ -20,7 +20,7 @@ n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
 TEMPLATE = False
-TEMPLATE_MODE = 'motifs' #msa, motifs, predefined
+TEMPLATE_MODE = 'motifs' #msa, msa_argmax, motifs, predefined
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 OPTIMIZER = 'none' #none, gd, gd_pssm, msa, pssm, conprob, matrix, niter_X[_Y] (X = num of muts per iter, Y duration of X)
 FILE_MATRIX = 'blosum62.txt' #blosum62, pepstruc, fft_290_nobkg
@@ -66,14 +66,15 @@ sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARN
 motif_constraint =    '''------------------------------------------mm------------------------------------------------mmm-------------------------------------------------mmm----------m-----------------------------------------------------------------------------------------------------------------------------------------------------------m-m--mm--m-------------------------------------mm-m---------------------------------------m------------------------------------'''.replace('\n','')
 motif_position =      '''------------------------------------------11------------------------------------------------111-------------------------------------------------111----------1-----------------------------------------------------------------------------------------------------------------------------------------------------------1111111111-------------------------------------1111---------------------------------------1------------------------------------'''.replace('\n','')
 
-#predefined start motifs (list of motifs [[[m1],[m2],[m3]],[[m1],[m2],[m3]]])
+
+#predefined start motifs (list of motif combinations [[[m1],[m2],[m3]],[[m1],[m2],[m3]]])
 mmotifs = [
 [[34, 54, 21, '--rrcccrmrr----------', 1, 0, 20], [71, 76, 6, 'rrrrrr', 1, 22, 27], [83, 102, 20, '---------gmccccrrr--', 1, 28, 47], [121, 181, 61, '--rrrrrrrrrrrcccccc--rrgcmccccrrrrrrmr-----------------------', 1, 58, 118], [286, 366, 81, '-----------------------ccccmgcccmgccmccccccccrrrrrrrrrrrrrrrrrrrrrrrrrccccmmr----', 1, 125, 205], [397, 437, 41, '-----rmrrrrrrrrr-------------rrrrrrrrrrrr', 1, 221, 261]]
 ]
 
 best_seq = "MAVILVFIDMGSFKRYKQRYPEFYKQARKRGMSYYGHDSWGLGWALAEFVLELLKKSNLTVIPDYQEKGKPVIIVDPGKGGDWTHMILPRVFGHRTDSSPWHQKYHAKLRKVLQQKGIKPLNVRRYNDDDTPEQRAKRLIELAKSGPVVILIEGHAYDKYWHNGDKKKSDRHMEEAVEVLRAVAEAISKEKQVYTLIIGDHGFSYSPRQMKSLVDNGHVKLLIFNRSHHPDMWMVKLVSPDARIVDTPEVFARFVELAIRRL"
 
-sequence_restraint_letters = "mg"
+sequence_restraint_letters = "mgs"
 structure_restraint_letters = "mygcr"
 structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2} 
 
@@ -84,7 +85,7 @@ if USE_PREDEFINED_START:
     TEMPLATE_MODE = 'predefined' #Can also be msa
     PREDEFINED_MOTIFS = True
     LEN = len(best_seq)
-    MCMC["BETA_START"] = 200
+    MCMC["BETA_START"] = 200 
 
 ###################################################
 ### Below are things that should not be touched ###
