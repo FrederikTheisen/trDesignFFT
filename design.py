@@ -286,6 +286,8 @@ def main():
 
         if terminate_run: break
 
+    print("FINISHED: saving output metrics file")
+
     output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics" + ".csv"
 
     metricsfilenumber = 1
@@ -294,6 +296,8 @@ def main():
         output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics_" + str(metricsfilenumber) + ".csv"
         metricsfilenumber += 1
         print("iterating output file number: " + str(metricsfilenumber))
+
+    print("Saving " + output_file_name + "...")
 
     with (script_dir / output_file_name).open("w") as f:
         i = 0
@@ -307,6 +311,8 @@ def main():
                 f.write(f",{v}")
             f.write(f"\n")
             i += 1
+
+    print("Save completed")
 
 if __name__ == "__main__":
     main()
