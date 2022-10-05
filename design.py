@@ -293,6 +293,7 @@ def main():
     while Path((script_dir / output_file_name)).is_file():
         output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics_" + str(metricsfilenumber) + ".csv"
         metricsfilenumber += 1
+        print("iterating output file number: " + str(metricsfilenumber))
 
     with (script_dir / output_file_name).open("w") as f:
         i = 0
