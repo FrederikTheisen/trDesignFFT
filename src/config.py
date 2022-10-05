@@ -64,7 +64,7 @@ use_sites = False #repulsive contraint (prob for shorter dist higher than prob f
 motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
-motif_weight_max = 10 #min weight is 1
+motif_weight_max = 1 #min weight is 1
 first_residue_met = True
 PSSM = None
 
