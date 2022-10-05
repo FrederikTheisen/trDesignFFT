@@ -9,13 +9,13 @@ from datetime import datetime
 # Will take dist restraints from motif file (.npz)
 USE_PREDEFINED_START = False
 
-# Set a random seed?
-# np.random.seed(seed=1234)
-
 LEN = 170  # sequence length
+USE_RANDOM_LENGTH = False  #uses random protein length between length of motifs and the specified LEN
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 BKG_WEIGHT = 1 # weight for background loss
+MTF_WEIGHT = 1
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
+FIRST_RESIDUE_MET = True
 n_models = 5  # How many structure prediction models to ensemble? [1-5]
 report_interval = 120 #seconds
 
@@ -29,14 +29,10 @@ FILE_MSA = None
 DYNAMIC_MOTIF_PLACEMENT = True
 PREDEFINED_MOTIFS = False
 
-BACKGROUND = True
-
-FORCECPU = False
-FAST = False #lower threshold for simulation end parameters
-TRACE = False #dump sequence + distogram at each improvement
-
-if FORCECPU: #CPU is very slow, 256aa, 5 models is ~15 sec per mutation
-    n_models = 1
+### LOSS FUNCTIONS ###
+BACKGROUND = True #Background loss function, designs folded protein
+MOTIFS = True #Motif loss, design target motif
+SITE = False #Designs pocket defined by m restraints, repulsive loss function 
 
 # MCMC schedule:
 MCMC = {}
@@ -59,14 +55,11 @@ seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting
 target_motif_path = 'AP.npz'
 
 
-use_motifs = True
-use_sites = False #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
+use_motifs = MOTIFS
+use_sites = SITE #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
 motif_placement_mode = 0 #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
-use_random_length = False #uses random protein length between length of motifs and the specified LEN
 use_random_motif_weight = False
-motif_weight_max = 1 #min weight is 1
-first_residue_met = True
-PSSM = None
+
 
 # Restraint map generated from pymol script
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
@@ -85,7 +78,7 @@ structure_restraint_letters = "mygcr"
 structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2} 
 
 
-#Setup predefined start 
+#Setup predefined start settings
 if USE_PREDEFINED_START:
     TEMPLATE = True
     TEMPLATE_MODE = 'predefined' #Can also be msa
@@ -94,13 +87,18 @@ if USE_PREDEFINED_START:
     MCMC["BETA_START"] = 200
 
 ###################################################
-### Below are thinks that should not be touched ###
+### Below are things that should not be touched ###
 ###################################################
 
 #MISC setup
 varlen = ""
 if use_random_length: varlen = "var"
 experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
+
+use_random_length = USE_RANDOM_LENGTH
+motif_weight_max = MTF_WEIGHT
+first_residue_met = FIRST_RESIDUE_MET
+PSSM = None
 
 ### Constants  ###
 # These settings are specific to the trRosetta Model implementation

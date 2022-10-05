@@ -200,8 +200,6 @@ def main():
                 print("CMD DESIGN END")
                 break
 
-        
-
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
             cfg.LEN = np.random.randint(mlen, maxseqlen)
 
@@ -272,7 +270,6 @@ def main():
             else:
                 start_seq = seqfrommotifs(motifs,cfg.sequence_constraint,start_seq)
 
-
         if cfg.first_residue_met:
             start_seq = "M" + start_seq[1:]
 
@@ -283,12 +280,19 @@ def main():
         metrics["TEMPLATE"] = str(cfg.TEMPLATE)
         metrics["TEMPLATE_MODE"] = str(cfg.TEMPLATE_MODE)
         metrics["OPTIMIZER"] = str(optim)
+        metrics["DYNAMIC_MOTIFS"] = str(cfg.DYNAMIC_MOTIF_PLACEMENT))
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
         if terminate_run: break
 
     output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics" + ".csv"
+
+    metricsfilenumber = 1
+
+    while Path((script_dir / output_file_name)).is_file():
+        output_file_name = "results/" + cfg.experiment_name + "/" + datetime.now().strftime("%Y-%m-%d-%H%M%S") + "_metrics_" + str(metricsfilenumber) + ".csv"
+        metricsfilenumber += 1
 
     with (script_dir / output_file_name).open("w") as f:
         i = 0
@@ -302,7 +306,6 @@ def main():
                 f.write(f",{v}")
             f.write(f"\n")
             i += 1
-
 
 if __name__ == "__main__":
     main()
