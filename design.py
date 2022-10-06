@@ -227,7 +227,7 @@ def main():
         print("MOTIFS:     " + str(cfg.use_motifs))
         print("  MODE:     " + cfg.motif_placement_mode_dict[cfg.motif_placement_mode])
         print("  MOTIFS:   " + str(len(motifs)))
-        print("  WEIGHT:   " + str(mtf_weight))
+#        print("  WEIGHT:   " + str(mtf_weight))
         print("  DYNAMIC:  " + str(cfg.DYNAMIC_MOTIF_PLACEMENT))
         print("IDX WEIGHT: " + str(cfg.USE_WEIGHTED_IDX))
         print("OPTIMIZER:  " + str(cfg.OPTIMIZER))
