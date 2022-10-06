@@ -110,6 +110,7 @@ use_random_motif_weight = False
 varlen = ""
 if use_random_length: varlen = "var"
 experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
+FORCECPU = False
 
 ### Constants  ###
 # These settings are specific to the trRosetta Model implementation
