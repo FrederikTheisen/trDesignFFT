@@ -98,10 +98,6 @@ seed_filepath =  None #'/home/frederik/Documents/inputseq.txt' # Sample starting
 num_simulations = 1000  # Number of sequences to design
 
 #MISC setup
-varlen = ""
-if use_random_length: varlen = "var"
-experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
-
 use_random_length = USE_RANDOM_LENGTH
 motif_weight_max = MTF_WEIGHT
 first_residue_met = FIRST_RESIDUE_MET
@@ -111,6 +107,9 @@ use_motifs = MOTIFS
 use_sites = SITE #repulsive contraint (prob for shorter dist higher than prob for correct dist = massive penalty)
 motif_placement_mode = MOTIF_PLACEMENT_MODE #0 = random position, 1 = dynamic, 2 = input order, 2.1 = input order even spread, 2.2 input order, no end overhang, 3 = order by group, 4 = order by dist, 5 = order by C->N dist,  -1 = random mode
 use_random_motif_weight = False
+varlen = ""
+if use_random_length: varlen = "var"
+experiment_name = datetime.now().strftime("%Y-%m-%d") + f"_{varlen}{LEN}aa"
 
 ### Constants  ###
 # These settings are specific to the trRosetta Model implementation
