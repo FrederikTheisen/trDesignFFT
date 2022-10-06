@@ -1223,7 +1223,7 @@ class MCMC_Optimizer(torch.nn.Module):
                                 time.sleep(30)
             except: print('control input error')
 
-            if (delta_step_best > 300 and self.step > 1500 and self.step % 100 == 0) or (cfg.FAST and self.step > 499 and self.step % 50 == 0):
+            if (delta_step_best > 300 and self.step > 1500 and self.step % 100 == 0):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))

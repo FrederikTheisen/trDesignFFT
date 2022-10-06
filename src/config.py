@@ -17,7 +17,7 @@ n_models = 5  # How many structure prediction models to ensemble? [1-5] (predict
 report_interval = 120 #seconds
 
 ### TEMPLATE ###
-#start sequence options. argmax is the most common residue from MSA. predefiend uses the 'best_seq' input
+#start sequence options. argmax is the most common residue from MSA. predefined uses the 'best_seq' input
 TEMPLATE = False
 TEMPLATE_MODE = 'motifs' #msa, msa_argmax, motifs, predefined
 FILE_MSA = None
