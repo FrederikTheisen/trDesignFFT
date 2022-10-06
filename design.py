@@ -280,7 +280,7 @@ def main():
         metrics["TEMPLATE"] = str(cfg.TEMPLATE)
         metrics["TEMPLATE_MODE"] = str(cfg.TEMPLATE_MODE)
         metrics["OPTIMIZER"] = str(optim)
-        metrics["DYNAMIC_MOTIFS"] = str(cfg.DYNAMIC_MOTIF_PLACEMENT))
+        metrics["DYNAMIC_MOTIFS"] = str(cfg.DYNAMIC_MOTIF_PLACEMENT)
         seqs.append(metrics["sequence"])
         seq_metrics.append(metrics)
 
