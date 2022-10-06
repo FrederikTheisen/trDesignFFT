@@ -1227,7 +1227,7 @@ class MCMC_Optimizer(torch.nn.Module):
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))
-                if abs(std) < 0.005 or (cfg.FAST and abs(std) < 0.02):
+                if abs(std) < 0.005:
                     break
 
             if self.step % self.M == 0 and self.step != 0:
