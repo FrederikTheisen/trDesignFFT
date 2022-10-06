@@ -1223,17 +1223,17 @@ class MCMC_Optimizer(torch.nn.Module):
                                 time.sleep(30)
             except: print('control input error')
 
-            if (delta_step_best > 300 and self.step > 1500 and self.step % 100 == 0):
+            if (delta_step_best > 300 and self.step > 1500 and self.step % 100 == 0): #Check if not improving for a long time
                 std = np.std(np.array(E_tracker)[-1000:])
                 n_std = std / np.array(E_tracker)[-1000:].mean()
                 print("sd: " + str(std))
                 if abs(std) < 0.005:
                     break
 
-            if self.step % self.M == 0 and self.step != 0:
+            if self.step % self.M == 0 and self.step != 0: #Fix mcmc criterion and sequence
                 seq, motifs = self.fixup_MCMC(seq, motifs)
 
-            if self.timelimited:
+            if self.timelimited: #Check runtime 
                 design_runtime = datetime.now() - self.design_starttime
                 if design_runtime.seconds/3600 > self.design_t_limit: 
                     terminate_run = True
@@ -1241,9 +1241,6 @@ class MCMC_Optimizer(torch.nn.Module):
                     break
 
             misctime += time.time() - misc_start
-
-
-                
 
         ########################################
 
@@ -1277,6 +1274,5 @@ class MCMC_Optimizer(torch.nn.Module):
         with (self.results_dir / "mutation_log.csv").open("w") as f:
             for mut in self.mutation_log:
                 f.write(f"{mut}\n")
-
 
         return self.best_metrics, terminate_run
