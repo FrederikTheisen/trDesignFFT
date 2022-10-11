@@ -201,7 +201,9 @@ def main():
                 break
 
         if cfg.use_random_length: #set random start length between length of motifs and config specified length
-            cfg.LEN = np.random.randint(mlen, maxseqlen)
+            minlen = mlen
+            if cfg.MINIMUM_LENGTH is not None: minlen = cfg.MINIMUM_LENGTH
+            cfg.LEN = np.random.randint(minlen, maxseqlen)
 
         if use_random_motif_mode:
             cfg.motif_placement_mode = np.random.randint(0,6)

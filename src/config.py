@@ -11,6 +11,7 @@ USE_PREDEFINED_START = False
 
 LEN = 170  # sequence length
 USE_RANDOM_LENGTH = False  #uses random protein length between length of motifs and the specified LEN
+MINIMUM_LENGTH = None
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 FIRST_RESIDUE_MET = True
 n_models = 5  # How many structure prediction models to ensemble? [1-5] (prediction quality vs speed)
@@ -62,7 +63,7 @@ MCMC["COEF"] = 1.25 #1.25  # Divide BETA by COEF
 MCMC["M"] = 100 #MCMC["N_STEPS"] // 200  # Adjust beta every M steps
 MCMC["MAX"] = 3000 #Maximum BETA value
 MCMC["BAD"] = 0.02 #Minimum fraction of bad mutation accepted. If fewer are accepted, then BETA is descreased (default 0.05)
-MCMC["T_LIMIT"] = 0.1 #Time limit for supercomputer computation scheduling. 
+MCMC["T_LIMIT"] = 5.9 #Time limit for supercomputer computation scheduling. 0 for no limit
 
 # Restraint map generated from pymol script
 sequence_constraint = '''NRAAQGDITAPGGARRLTGDQTAALRDSLSDKPAKNIILLIGDGMGDSEITAARNYAEGAGGFFKGIDALPLTGQYTHYALNKKTGKPDYVTDSAASATAWSTGVKTYNGALGVDIHEKDHPTILEMAKAAGLATGNVSTAELQDATPAALVAHVTSRKCYGPSATSEKCPGNALEKGGKGSITEQLLNARADVTLGGGAKTFAETATAGEWQGKTLREQAQARGYQLVSDAASLNSVTEANQQKPLLGLFADGNMPVRWLGPKATYHGNIDKPAVTCTPNPQRNDSVPTLAQMTDKAIELLSKNEKGFFLQVEGASIDKQDHAANPCGQIGETVDLDEAVQRALEFAKKEGNTLVIVTADHAHASQIVAPDTKAPGLTQALNTKDGAVMVMSYGNSEEDSQEHTGSQLRIAAYGPHAANVVGLTDQTDLFYTMKAALGL'''.replace('\n','')
