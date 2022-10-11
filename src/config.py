@@ -11,7 +11,7 @@ USE_PREDEFINED_START = False
 
 LEN = 170  # sequence length
 USE_RANDOM_LENGTH = False  #uses random protein length between length of motifs and the specified LEN
-MINIMUM_LENGTH = None
+MINIMUM_LENGTH = None #random minimum length, if None then is equal to total motif length, if negative then the given number is added to the motif length
 RM_AA = "C"  # comma-separated list of specific amino acids to disable from being sampled (ex: 'C,F')
 FIRST_RESIDUE_MET = True
 n_models = 5  # How many structure prediction models to ensemble? [1-5] (prediction quality vs speed)
