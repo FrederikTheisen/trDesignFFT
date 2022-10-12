@@ -25,7 +25,7 @@ FILE_MSA = None
 
 ### MUTATION POSITION ###
 #good = keeps mutating same region until mutations are bad, reciprocal = aims to mutate uniformly, tm = not implemented
-#reciprocal works good with dynamic motifs. dont use 'good'
+#reciprocal works good with dynamic motifs. dont use 'good', it doesn't well.
 USE_WEIGHTED_IDX = False #good, reciprocal, tm
 
 ### OPTIMIZER ###
@@ -52,7 +52,7 @@ BACKGROUND = True #Background loss function, designs folded protein
 BKG_WEIGHT = 1 # weight for background loss
 MOTIFS = True #Motif loss, design target motif
 MTF_WEIGHT = 1
-SITE = False #Designs pocket defined by m restraints, repulsive loss function
+SITE = False #Designs pocket defined by m restraints, structurally repulsive loss function
 AA_WEIGHT = 1  # weight for the AA composition biasing loss term
 
 ### MCMC schedule ###
@@ -85,9 +85,10 @@ structure_restraint_mask_values = {'m': 12, 'y': 12, 'g': 5, 'c': 5, 'r': 2}
 #Setup predefined start settings
 if USE_PREDEFINED_START:
     TEMPLATE = True
-    TEMPLATE_MODE = 'predefined' #Can also be msa
+    TEMPLATE_MODE = 'predefined' #Can also be msa or conprob
     PREDEFINED_MOTIFS = True
     LEN = len(best_seq)
+    MINIMUM_LENGTH = None
     MCMC["BETA_START"] = 200 
 
 ###################################################
