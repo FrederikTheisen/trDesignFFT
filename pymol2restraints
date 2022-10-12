@@ -31,19 +31,19 @@ for c in colors:
   elif c == 8: #magenta
     rtype = rtype + 'm'
     mpos = mpos + '1'
-  elif c == 6:
+  elif c == 6: #yellow?
     rtype = rtype + 'y'
     mpos = mpos + '9'
   elif c == 0: #white
     rtype = rtype + '-'
     mpos = mpos + '-'
     mlen -= 1
-  elif c == 49:
+  elif c == 49: #proably 'firebrick'
     rtype = rtype + 'c'
     mpos = mpos + '1'
-  elif c == 5: #cyan/separate motif group, highly restrained
-    rtype = rtype + 'm'
-    mpos = mpos + '9'
+  elif c == 5: #cyan
+    rtype = rtype + 'c'
+    mpos = mpos + '1'
   else:
     print(c)
     exit()
