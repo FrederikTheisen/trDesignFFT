@@ -18,7 +18,8 @@ n_models = 5  # How many structure prediction models to ensemble? [1-5] (predict
 report_interval = 120 #seconds
 
 ### TEMPLATE ###
-#start sequence options. argmax is the most common residue from MSA. predefined uses the 'best_seq' input
+#start sequence options. msa uses msa probabilities. argmax is the most common residue from msa. predefined uses the 'best_seq' input.
+#motifs uses the restraint map sequence and matches that to motifs, gaps are random. 
 TEMPLATE = False
 TEMPLATE_MODE = 'motifs' #msa, msa_argmax, motifs, predefined
 FILE_MSA = None
@@ -43,8 +44,8 @@ FILE_PSSM = None
 # 0 = random position, 2 = input order, 3 = order by group, 5 = order by C->N distance
 # .1 = even distance, .2 = first and last motif are terminal, spacing is mean + sd, .3 = first and last motif are terminal, random spacing
 MOTIF_PLACEMENT_MODE = 2
-DYNAMIC_MOTIF_PLACEMENT = True
-PREDEFINED_MOTIFS = False
+DYNAMIC_MOTIF_PLACEMENT = True #make motifs move around during design process? moves mostly in the beginning, acceptance criteriea is lowered for motif movement
+PREDEFINED_MOTIFS = False #Use mmotifs?
 target_motif_path = 'AP.npz' # .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
 
 ### LOSS FUNCTIONS ###

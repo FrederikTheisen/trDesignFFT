@@ -217,7 +217,7 @@ def main():
             #cfg.TEMPLATE_MODE = random.choice(['predefined','msa'])
             #cfg.USE_WEIGHTED_IDX = random.choice(['reciprocal', False])
             #cfg.OPTIMIZER = random.choice(['msa_start'])
-            #cfg.DYNAMIC_MOTIF_PLACEMENT = random.choice([True,False,False,False,False])
+            #cfg.DYNAMIC_MOTIF_PLACEMENT = random.choice([True,False])
 
         mtf_weight = cfg.motif_weight_max
         if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
