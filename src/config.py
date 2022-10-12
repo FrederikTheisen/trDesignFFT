@@ -42,7 +42,7 @@ FILE_PSSM = None
 ### MOTIFS ###
 # 0 = random position, 2 = input order, 3 = order by group, 5 = order by C->N distance
 # .1 = even distance, .2 = first and last motif are terminal, spacing is mean + sd, .3 = first and last motif are terminal, random spacing
-MOTIF_PLACEMENT_MODE = 0
+MOTIF_PLACEMENT_MODE = 2
 DYNAMIC_MOTIF_PLACEMENT = True
 PREDEFINED_MOTIFS = False
 target_motif_path = 'AP.npz' # .npz file containing ['dist', 'omega', 'theta', 'phi'] target arrays of shape LxL
