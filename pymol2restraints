@@ -45,6 +45,7 @@ for c in colors:
     rtype = rtype + 'c'
     mpos = mpos + '1'
   else:
+    print("Undefined color: exiting: color:")
     print(c)
     exit()
 print(i)
