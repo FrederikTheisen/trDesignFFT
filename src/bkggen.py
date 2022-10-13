@@ -10,7 +10,7 @@ import mcmc
 from tr_Rosetta_model import trRosettaEnsemble, prep_seq
 from utils import aa2idx, distogram_distribution_to_distogram, idx2aa, plot_progress, d
 import torch
-from time
+import time
 
 def distogram_distribution_to_distogram(distribution, reduction_style="max", keep_no_contact_bin=False):
     distribution = np.squeeze(distribution)
