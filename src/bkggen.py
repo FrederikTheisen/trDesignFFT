@@ -70,9 +70,9 @@ def generate_bkg(length,n_samples,batchsize,met_first,rm_aa):
     met_first = met_first
     L = length
     n_samples = n_samples
-    n_niter = int(n_samples / batchsize)
+    n_iter = int(n_samples / batchsize)
     
-    print("Total samples: " + str(n_inter*batchsize))
+    print("Total samples: " + str(n_iter*batchsize))
     print("Iterations: " + str(n_iter))
 
     aas = list("ARNDCQEGHILKMFPSTWYV")
