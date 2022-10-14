@@ -222,7 +222,11 @@ def main():
         mtf_weight = cfg.motif_weight_max
         if cfg.use_random_motif_weight: mtf_weight = np.random.uniform(1,cfg.motif_weight_max)
 
-        if cfg.PREDEFINED_MOTIFS:
+        if cfg.USE_PREDEFINED_START:
+            motifs = random.choice(cfg.mmotifs)
+            cfg.sequence_constraint = cfg.best_seq
+            cfg.motif_placement_mode = -2
+        elif cfg.PREDEFINED_MOTIFS:
             motifs = random.choice(cfg.mmotifs)
             cfg.motif_placement_mode = -3
 

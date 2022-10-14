@@ -89,6 +89,7 @@ if USE_PREDEFINED_START:
     TEMPLATE_MODE = 'predefined' #Can also be msa or conprob
     PREDEFINED_MOTIFS = True
     LEN = len(best_seq)
+    USE_RANDOM_LENGTH = False
     MINIMUM_LENGTH = None
     MCMC["BETA_START"] = 200 
 
